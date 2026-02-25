@@ -42,6 +42,8 @@ jobs:
 
       - name: Build
         run: pnpm run build -- --${{ matrix.platform }} --publish never
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
