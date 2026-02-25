@@ -1,0 +1,13 @@
+{
+  "name": "timworkspaces",
+  "productName": "Tim Workspaces",
+  "version": "1.0.0",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron ."
+  },
+  "dependencies": {
+    "electron": "^33.0.0"
+  }
+}

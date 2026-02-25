@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' https: data:;">
+  <title>Tim Workspaces</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    [data-collapsed="true"] .service-btn { justify-content: center; padding: 0.5rem; }
+    [data-collapsed="true"] .service-btn img { width: 1.25rem; height: 1.25rem; min-width: 1.25rem; min-height: 1.25rem; aspect-ratio: 1; object-fit: contain; }
+    [data-collapsed="true"] .service-row { justify-content: center; }
+    [data-collapsed="true"] .mute-all-btn { display: none; }
+    [data-collapsed="true"] .drag-handle { display: none; }
+    [data-collapsed="true"] .service-more-btn { display: none; }
+    [data-collapsed="true"] .add-btn-content { padding: 0.5rem; }
+    [data-collapsed="true"] .add-btn-content span:first-child { width: 1.25rem; height: 1.25rem; min-width: 1.25rem; min-height: 1.25rem; display: flex; align-items: center; justify-content: center; }
+    [data-collapsed="true"] .sidebar-menu-btn { display: none; }
+    [data-collapsed="true"] .sidebar-search-wrap { display: none; }
+    [data-collapsed="true"] .theme-toggle-btn { display: none; }
+    .service-row.dragging { opacity: 0.5; }
+    .service-row.drag-over { border-radius: 8px; background: rgba(56, 189, 248, 0.15); }
+    #modal, #modal-delete, #modal-star { display: none; }
+    #modal.modal-open, #modal-delete.modal-open, #modal-star.modal-open { display: flex !important; }
+    #modal.modal-open .modal-content { animation: modalSlideIn 0.2s ease-out; }
+    @keyframes modalSlideIn {
+      from { opacity: 0; transform: scale(0.96) translateY(-8px); }
+      to { opacity: 1; transform: scale(1) translateY(0); }
+    }
+    .preset-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .preset-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+    .preset-card:active { transform: translateY(0); }
+    #toast { opacity: 0; transform: translateY(-8px); pointer-events: none; transition: opacity 0.2s, transform 0.2s; }
+    #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    .loading-bar-progress { animation: loadingSlide 1.5s ease-in-out infinite; }
+    @keyframes loadingSlide {
+      0% { transform: translateX(-100%); }
+      100% { transform: translateX(400%); }
+    }
+    /* Theme: light (data-theme="light") */
+    [data-theme="light"] body { background-color: #f4f4f5 !important; color: #27272a !important; }
+    [data-theme="light"] #sidebar { background-color: rgba(228,228,231,0.9) !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #content-area { background-color: rgba(244,244,245,0.9) !important; }
+    [data-theme="light"] #btn-collapse, [data-theme="light"] #btn-mute-all, [data-theme="light"] #btn-theme, [data-theme="light"] #btn-sidebar-menu { color: #71717a !important; }
+    [data-theme="light"] #btn-collapse:hover, [data-theme="light"] #btn-mute-all:hover, [data-theme="light"] #btn-theme:hover, [data-theme="light"] #btn-sidebar-menu:hover { color: #27272a !important; background-color: rgba(113,113,122,0.2) !important; }
+    [data-theme="light"] #sidebar-search { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #18181b !important; }
+    [data-theme="light"] #sidebar-search::placeholder { color: #a1a1aa !important; }
+    [data-theme="light"] #btn-add-service { color: #71717a !important; }
+    [data-theme="light"] #btn-add-service:hover { color: #18181b !important; background-color: rgba(113,113,122,0.2) !important; }
+    [data-theme="light"] .service-row:hover { background-color: rgba(113,113,122,0.15) !important; }
+    [data-theme="light"] .service-row.border-l-sky-500 { background-color: rgba(113,113,122,0.25) !important; }
+    [data-theme="light"] .service-btn { color: #71717a !important; }
+    [data-theme="light"] .service-btn:hover { color: #27272a !important; }
+    [data-theme="light"] .service-btn.text-zinc-100 { color: #18181b !important; }
+    [data-theme="light"] .service-dropdown, [data-theme="light"] .sidebar-dropdown { background-color: #e4e4e7 !important; border-color: #d4d4d8 !important; }
+    [data-theme="light"] .service-dropdown button, [data-theme="light"] .sidebar-dropdown button { color: #52525b !important; }
+    [data-theme="light"] .service-dropdown button:hover, [data-theme="light"] .sidebar-dropdown button:hover { background-color: #d4d4d8 !important; color: #18181b !important; }
+    [data-theme="light"] .modal-content { background-color: rgba(250,250,250,0.98) !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-title { color: #18181b !important; }
+    [data-theme="light"] #modal-desc { color: #71717a !important; }
+    [data-theme="light"] #preset-section .text-zinc-500 { color: #71717a !important; }
+    [data-theme="light"] .preset-card { background-color: rgba(228,228,231,0.5) !important; border-color: rgba(212,212,216,0.5) !important; color: #52525b !important; }
+    [data-theme="light"] .preset-card:hover { background-color: rgba(212,212,216,0.6) !important; color: #18181b !important; }
+    [data-theme="light"] .modal-content .border-zinc-600 { border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] .modal-content .text-zinc-300 { color: #52525b !important; }
+    [data-theme="light"] .modal-content input { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #18181b !important; }
+    [data-theme="light"] .modal-content input::placeholder { color: #a1a1aa !important; }
+    [data-theme="light"] #modal-cancel { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #52525b !important; }
+    [data-theme="light"] #modal-cancel:hover { background-color: rgba(212,212,216,0.7) !important; }
+    [data-theme="light"] #modal-close { color: #71717a !important; }
+    [data-theme="light"] #modal-close:hover { color: #27272a !important; background-color: rgba(113,113,122,0.2) !important; }
+    [data-theme="light"] #modal-delete .relative { background-color: #fafafa !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-delete h3 { color: #18181b !important; }
+    [data-theme="light"] #modal-delete p, [data-theme="light"] #modal-delete .text-zinc-400 { color: #71717a !important; }
+    [data-theme="light"] #modal-delete strong { color: #27272a !important; }
+    [data-theme="light"] #modal-delete .bg-zinc-700 { background-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-delete #modal-delete-cancel:hover { background-color: rgba(212,212,216,0.8) !important; }
+    [data-theme="light"] #modal-delete .text-zinc-200 { color: #27272a !important; }
+    [data-theme="light"] #modal-import .relative { background-color: #fafafa !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-import h3 { color: #18181b !important; }
+    [data-theme="light"] #modal-import p, [data-theme="light"] #modal-import .text-zinc-400 { color: #71717a !important; }
+    [data-theme="light"] #modal-import strong { color: #27272a !important; }
+    [data-theme="light"] #modal-star .relative { background-color: #fafafa !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-star h3 { color: #18181b !important; }
+    [data-theme="light"] #modal-star p, [data-theme="light"] #modal-star .text-zinc-400 { color: #71717a !important; }
+    [data-theme="light"] #modal-star #modal-star-later { background-color: rgba(212,212,216,0.6) !important; color: #52525b !important; }
+    [data-theme="light"] #modal-star #modal-star-later:hover { background-color: rgba(212,212,216,0.8) !important; }
+    [data-theme="light"] #toast { background-color: #e4e4e7 !important; border-color: rgba(212,212,216,0.8) !important; color: #27272a !important; }
+  </style>
+</head>
+<body class="bg-zinc-900 text-zinc-200 h-screen flex flex-col font-sans antialiased" data-theme="dark">
+  <div class="flex flex-1 overflow-hidden">
+    <aside id="sidebar" class="w-56 bg-zinc-800/60 backdrop-blur-sm border-r border-zinc-600/50 flex flex-col flex-shrink-0 transition-all duration-200 ease-out" data-collapsed="false">
+      <div class="flex items-center justify-between px-1">
+        <button type="button" id="btn-collapse" class="p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors shrink-0" title="Recolher barra">
+          <svg class="w-4 h-4 collapse-icon transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 19l-7-7 7-7"/></svg>
+        </button>
+        <button type="button" id="btn-mute-all" class="mute-all-btn p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors shrink-0" title="Silenciar todas as notificações">
+          <svg id="mute-all-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        </button>
+        <button type="button" id="btn-theme" class="theme-toggle-btn p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors shrink-0" title="Alternar tema" aria-label="Alternar tema claro/escuro">
+          <svg id="theme-icon" class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+        </button>
+        <div class="relative shrink-0">
+          <button type="button" id="btn-sidebar-menu" class="sidebar-menu-btn p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" title="Mais opções">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
+          </button>
+          <div id="sidebar-menu-dropdown" class="sidebar-dropdown hidden absolute right-0 top-full mt-1 py-1 bg-zinc-700 border border-zinc-600 rounded-lg shadow-xl z-50 min-w-[160px]">
+            <button type="button" id="menu-export" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+              Exportar serviços
+            </button>
+            <button type="button" id="menu-import" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l4 4m0 0l4-4m-4 4V4"/></svg>
+              Importar serviços
+            </button>
+            <button type="button" id="menu-star" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
+              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+              Dar estrela no GitHub
+            </button>
+          </div>
+        </div>
+      </div>
+      <input type="file" id="input-import-file" accept=".json,application/json" class="hidden">
+      <div id="sidebar-search-wrap" class="px-2 py-1.5 sidebar-search-wrap border-b border-zinc-600/30">
+        <input type="text" id="sidebar-search" placeholder="Buscar serviços…" autocomplete="off"
+          class="w-full px-3 py-2 bg-zinc-700/40 border border-zinc-600/50 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60">
+      </div>
+      <div id="service-list" class="flex-1 overflow-y-auto p-1.5 flex flex-col gap-0.5 min-w-0"></div>
+      <button type="button" id="btn-add-service" class="m-1.5 p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/50 transition-colors flex items-center justify-center gap-2 add-btn-content">
+        <span class="text-lg leading-none">+</span>
+        <span class="add-btn-label truncate">Adicionar</span>
+      </button>
+    </aside>
+    <main id="content-area" class="flex-1 flex flex-col min-w-0 bg-zinc-900/80 overflow-hidden"></main>
+  </div>
+
+  <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+    <div id="modal-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"></div>
+    <div class="modal-content relative w-full max-w-lg bg-zinc-800/95 border border-zinc-600/50 rounded-2xl shadow-2xl overflow-hidden">
+      <div class="px-6 pt-6 pb-4">
+        <div class="flex items-center justify-between mb-1">
+          <h2 id="modal-title" class="text-xl font-semibold text-zinc-50 tracking-tight">Adicionar serviço</h2>
+          <button type="button" id="modal-close" class="p-2 -mr-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>
+        </div>
+        <p id="modal-desc" class="text-sm text-zinc-400 mb-5">Escolha um serviço pronto ou adicione uma URL personalizada.</p>
+
+        <div id="preset-section" class="mb-5">
+          <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">Atalhos</p>
+          <div id="preset-services" class="grid grid-cols-4 sm:grid-cols-4 gap-2"></div>
+        </div>
+
+        <div class="relative">
+          <div class="absolute inset-0 flex items-center" aria-hidden="true">
+            <div class="w-full border-t border-zinc-600/50"></div>
+          </div>
+          <div class="relative flex justify-center text-sm">
+            <span class="px-3 bg-zinc-800/95 text-zinc-500">ou manualmente</span>
+          </div>
+        </div>
+
+        <form id="modal-form" class="mt-5">
+          <div class="space-y-4">
+            <div>
+              <label for="input-name" class="block text-sm font-medium text-zinc-300 mb-2">Nome da aba</label>
+              <input type="text" id="input-name" placeholder="Ex: WhatsApp pessoal" required autocomplete="off"
+                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 transition-shadow text-sm">
+            </div>
+            <div>
+              <label for="input-url" class="block text-sm font-medium text-zinc-300 mb-2">URL</label>
+              <input type="url" id="input-url" placeholder="https://" required autocomplete="url"
+                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 transition-shadow text-sm font-mono">
+              <p id="url-error" class="mt-1.5 text-xs text-red-400 hidden"></p>
+            </div>
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" id="input-use-as-home" class="rounded border-zinc-600 bg-zinc-700/40 text-sky-500 focus:ring-sky-500/40">
+              <span class="text-sm text-zinc-300">Usar como página inicial</span>
+            </label>
+          </div>
+          <div class="flex gap-3 mt-6">
+            <button type="button" id="modal-cancel" class="flex-1 px-4 py-3 bg-zinc-700/40 hover:bg-zinc-600/50 text-zinc-300 rounded-xl text-sm font-medium transition-colors border border-zinc-600/50">Cancelar</button>
+            <button type="submit" id="modal-add-btn" class="flex-1 px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-sky-500/20">Adicionar</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" role="status" aria-live="polite" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-3 bg-zinc-800 border border-zinc-600/50 rounded-xl shadow-xl text-zinc-100 text-sm font-medium">
+    Serviço adicionado
+  </div>
+
+  <div id="modal-import" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
+    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="modal-import-overlay"></div>
+    <div class="relative bg-zinc-800 border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] shadow-2xl">
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Importar serviços</h3>
+      <p class="text-sm text-zinc-400 mb-4">Como deseja importar os <strong id="import-count" class="text-zinc-200">0</strong> serviços?</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="modal-import-cancel" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+        <button type="button" id="modal-import-merge" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Mesclar</button>
+        <button type="button" id="modal-import-replace" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors">Substituir</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-star" class="fixed inset-0 z-50 flex items-center justify-center">
+    <div id="modal-star-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative bg-zinc-800 border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl">
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Gostou do Tim Workspaces?</h3>
+      <p class="text-sm text-zinc-400 mb-4">Se o Tim Workspaces está sendo útil, considere dar uma estrela no GitHub. Suporte gratuito!</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="modal-star-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
+        <button type="button" id="modal-star-btn" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          Dar estrela
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modal-delete" class="fixed inset-0 z-50 flex items-center justify-center">
+    <div id="modal-delete-overlay" class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
+    <div class="relative bg-zinc-800 border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] shadow-2xl">
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Remover serviço</h3>
+      <p class="text-sm text-zinc-400 mb-4">Tem certeza que deseja remover <strong id="delete-service-name" class="text-zinc-200"></strong>?</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="modal-delete-cancel" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
+        <button type="button" id="modal-delete-confirm" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors">Remover</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

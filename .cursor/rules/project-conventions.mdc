@@ -1,0 +1,38 @@
+---
+alwaysApply: true
+---
+# Convenções do Projeto
+
+## Execução de Tarefas
+
+- **Paralelismo**: Sempre lançar múltiplos agentes (mcp_task) para executar tarefas em paralelo quando houver 2+ tarefas independentes
+- **Agentes simultâneos**: Preferir 2-4 agentes concorrentes em vez de executar sequencialmente
+- **Divisão lógica**: Quebrar tarefas complexas em sub-tarefas que possam ser atribuídas a diferentes agentes
+
+## Tooling
+
+- **pnpm**: Sempre usar `pnpm` em vez de npm ou yarn para instalar dependências e executar scripts
+- **Scripts**: Adicionar/atualizar scripts no package.json para rodar via `pnpm run <script>`
+
+## UI/UX
+
+- **Princípio**: Leve, simples, funcional e bonita
+- **Layout**: Minimalista; evitar clutter visual
+- **Cores**: Preferir paletas escuras (slate, preto, cinza) para consistência
+- **Interações**: Transições suaves; feedback visual em hover/focus
+- **Acessibilidade**: Tooltips em ícones; labels claros; contraste adequado
+
+## Performance e Economia de Tokens
+
+- **Leitura**: Ler apenas os arquivos necessários; usar grep/glob antes de read em codebases grandes
+- **Edições**: Fazer alterações cirúrgicas (search_replace) em vez de reescrever arquivos inteiros
+- **Ferramentas**: Preferir grep/glob/semantic_search em vez de comandos de terminal (find, cat)
+- **Mensagens**: Respostas diretas; evitar explicações redundantes
+- **Agentes**: Escolher modelo "fast" para tarefas simples e bem delimitadas
+
+## Boas Práticas Gerais
+
+- **Código**: Manter funções pequenas; evitar duplicação; nomes descritivos
+- **Comentários**: Só quando a intenção não é óbvia
+- **Confiabilidade**: Tratar erros; validar inputs; usar fallbacks (ex.: favicon)
+- **Persistência**: Usar localStorage ou equivalente para preferências do usuário
