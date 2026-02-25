@@ -64,5 +64,10 @@
         }
       ]
     }
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "electron"
+    ]
   }
 }
