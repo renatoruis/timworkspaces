@@ -2,6 +2,12 @@
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
   "version": "1.0.0",
+  "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
+  "author": {
+    "name": "Renato Ruiz",
+    "email": "renatoruis@users.noreply.github.com",
+    "url": "https://github.com/renatoruis"
+  },
   "main": "main.js",
   "scripts": {
     "start": "electron .",
