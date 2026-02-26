@@ -11,10 +11,20 @@ jobs:
         include:
           - os: windows-latest
             platform: win
+            arch_flag: ""
+            artifact_suffix: ""
           - os: macos-latest
             platform: mac
+            arch_flag: "--arm64"
+            artifact_suffix: "-arm64"
+          - os: macos-latest
+            platform: mac
+            arch_flag: "--x64"
+            artifact_suffix: "-x64"
           - os: ubuntu-latest
             platform: linux
+            arch_flag: ""
+            artifact_suffix: ""
     runs-on: ${{ matrix.os }}
     timeout-minutes: 90
 
@@ -42,14 +52,14 @@ jobs:
         run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Build
-        run: pnpm run build -- --${{ matrix.platform }} --publish never
+        run: pnpm run build -- --${{ matrix.platform }} ${{ matrix.arch_flag }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ matrix.platform }}-build
+          name: ${{ matrix.platform }}${{ matrix.artifact_suffix }}-build
           path: dist/
           if-no-files-found: error
 
