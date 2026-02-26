@@ -71,16 +71,11 @@ Versões compiladas e instaladores estão disponíveis em: **[Releases](https://
 
 ### Instalação no macOS
 
-Há duas opções de instalação:
+Baixe o `.dmg` na versão compatível (arm64 para Apple Silicon, x64 para Intel). Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco.
 
-| Formato | Descrição |
-|---------|-----------|
-| **`.pkg`** (recomendado) | Instalador que substitui a versão anterior automaticamente. Use este se tiver problemas com DMG. |
-| **`.dmg`** | Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco. |
-
-**Problemas comuns com DMG:**
+**Problemas comuns:**
 - *"The volume can't be ejected"* — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para Aplicativos primeiro.
-- *Não sobrescreve a instalação anterior* — Use o instalador `.pkg` ou exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova.
+- *Não sobrescreve a instalação anterior* — Exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova.
 
 ## Contribuir
 
