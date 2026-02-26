@@ -79,6 +79,12 @@ jobs:
           find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
           ls -la release-files/
 
+      - name: Delete existing release (if any)
+        run: |
+          gh release delete v${{ steps.version.outputs.VERSION }} --yes 2>/dev/null || true
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
