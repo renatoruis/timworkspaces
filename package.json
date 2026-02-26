@@ -1,7 +1,7 @@
 {
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
-  "version": "1.0.2",
+  "version": "1.0.4",
   "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
   "author": {
     "name": "Renato Ruis",
@@ -74,6 +74,9 @@
         }
       ],
       "icon": "src/assets/icone-fundo-escuro.png"
+    },
+    "nsis": {
+      "compression": "normal"
     }
   },
   "pnpm": {
