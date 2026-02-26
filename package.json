@@ -52,8 +52,20 @@
     },
     "mac": {
       "target": [
-        {"target": "dmg", "arch": ["arm64", "x64"]},
-        {"target": "pkg", "arch": ["arm64", "x64"]}
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "pkg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
       ],
       "category": "public.app-category.productivity",
       "icon": "src/assets/icone-fundo-escuro.png"
@@ -74,9 +86,6 @@
         }
       ],
       "icon": "src/assets/icone-fundo-escuro.png"
-    },
-    "nsis": {
-      "compression": "normal"
     }
   },
   "pnpm": {
