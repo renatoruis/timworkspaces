@@ -75,6 +75,21 @@ function loadTheme() {
   const theme = localStorage.getItem(THEME_KEY) || 'dark';
   document.body.dataset.theme = theme;
   updateThemeIcon(theme);
+  updateSidebarLogo(theme);
+}
+
+function updateSidebarLogo(theme) {
+  const logo = document.getElementById('sidebar-logo');
+  const icon = document.getElementById('sidebar-icon');
+  const iconPath = theme === 'light' ? 'assets/icone-fundo-claro.png' : 'assets/icone-fundo-escuro.png';
+  if (logo) {
+    logo.src = theme === 'light' ? 'assets/logo-fundo-claro.png' : 'assets/logo-fundo-escuro.png';
+    logo.style.display = '';
+  }
+  if (icon) {
+    icon.src = iconPath;
+    icon.style.display = '';
+  }
 }
 
 function updateThemeIcon(theme) {
@@ -96,6 +111,7 @@ function toggleTheme() {
   document.body.dataset.theme = next;
   localStorage.setItem(THEME_KEY, next);
   updateThemeIcon(next);
+  updateSidebarLogo(next);
 }
 
 function getFaviconUrl(url) {
@@ -585,12 +601,44 @@ function renderContentArea() {
   const webviewContainer = document.createElement('div');
   webviewContainer.className = 'flex-1 min-h-0 relative';
   const webview = document.createElement('webview');
-  webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36';
+  webview.partition = 'persist:timworkspaces';
+  webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
   webview.className = 'w-full h-full border-0';
   const serviceId = active?.id ?? 'default';
-  const url = active?.url ?? getDefaultUrl();
+  const currentUrl = active?.url ?? getDefaultUrl();
   injectMuteIfNeeded(webview, serviceId);
-  webview.src = url;
+  webview.src = currentUrl;
+
+  function isGoogleAuthUrl(u) {
+    if (!u || typeof u !== 'string') return false;
+    try {
+      const url = new URL(u);
+      return url.hostname === 'accounts.google.com' || url.hostname.endsWith('.accounts.google.com');
+    } catch {
+      return false;
+    }
+  }
+
+  webview.addEventListener('will-navigate', async (e) => {
+    const targetUrl = e?.url;
+    if (!isGoogleAuthUrl(targetUrl) || typeof window.electronAPI?.openGoogleAuth !== 'function') return;
+    try {
+      if (typeof e.preventDefault === 'function') e.preventDefault();
+    } catch (_) {}
+    loadingBar.classList.remove('hidden');
+    try {
+      const finalUrl = await window.electronAPI.openGoogleAuth(targetUrl);
+      if (finalUrl && activeWebview === webview) {
+        webview.src = finalUrl;
+      } else if (!finalUrl && activeWebview === webview) {
+        webview.src = currentUrl;
+      }
+    } catch {
+      if (activeWebview === webview) webview.src = currentUrl;
+    } finally {
+      loadingBar.classList.add('hidden');
+    }
+  });
   webviewContainer.appendChild(webview);
   contentAreaEl.appendChild(webviewContainer);
   activeWebview = webview;
@@ -772,11 +820,37 @@ function init() {
   const modalCancel = document.getElementById('modal-cancel');
   if (modalCancel) modalCancel.addEventListener('click', closeModal);
 
+  const modalCoffee = document.getElementById('modal-coffee');
+  const modalCoffeeOverlay = document.getElementById('modal-coffee-overlay');
+  const modalCoffeeClose = document.getElementById('modal-coffee-close');
+  const menuCoffee = document.getElementById('menu-coffee');
+  const coffeeCopyPix = document.getElementById('coffee-copy-pix');
+  const PIX_KEY = 'a7f1a823-d3b5-4ab3-b63f-03ffed9459f7';
+  if (menuCoffee && modalCoffee) {
+    menuCoffee.addEventListener('click', () => {
+      document.getElementById('sidebar-menu-dropdown')?.classList.add('hidden');
+      modalCoffee.classList.add('modal-open');
+    });
+  }
+  if (modalCoffeeOverlay) modalCoffeeOverlay.addEventListener('click', () => modalCoffee?.classList.remove('modal-open'));
+  if (modalCoffeeClose) modalCoffeeClose.addEventListener('click', () => modalCoffee?.classList.remove('modal-open'));
+  if (coffeeCopyPix) {
+    coffeeCopyPix.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(PIX_KEY);
+        showToast('Chave PIX copiada');
+      } catch {
+        showToast('Erro ao copiar');
+      }
+    });
+  }
+
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
       if (modalEl?.classList.contains('modal-open')) closeModal();
       else if (document.getElementById('modal-delete')?.classList.contains('modal-open')) closeDeleteModal();
       else if (document.getElementById('modal-import')?.style.display === 'flex') closeImportModal();
+      else if (modalCoffee?.classList.contains('modal-open')) modalCoffee.classList.remove('modal-open');
       return;
     }
     handleModalKeydown(e);

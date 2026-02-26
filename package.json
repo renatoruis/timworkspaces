@@ -1,7 +1,7 @@
 {
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
   "author": {
     "name": "Renato Ruis",
@@ -19,7 +19,7 @@
   },
   "devDependencies": {
     "electron-builder": "^25.1.8",
-    "electron": "^33.0.0"
+    "electron": "^37.0.0"
   },
   "build": {
     "appId": "com.timworkspaces.app",
@@ -27,6 +27,7 @@
     "directories": {
       "output": "dist"
     },
+    "icon": "src/assets/icone-fundo-escuro.png",
     "files": [
       "main.js",
       "preload.js",
@@ -46,13 +47,15 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "src/assets/icone-fundo-escuro.png"
     },
     "mac": {
       "target": [
         "dmg"
       ],
-      "category": "public.app-category.productivity"
+      "category": "public.app-category.productivity",
+      "icon": "src/assets/icone-fundo-escuro.png"
     },
     "linux": {
       "target": [
@@ -68,7 +71,8 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "icon": "src/assets/icone-fundo-escuro.png"
     }
   },
   "pnpm": {
