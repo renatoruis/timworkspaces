@@ -8,13 +8,13 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     [data-collapsed="true"] .service-btn { justify-content: center; padding: 0.5rem; }
-    [data-collapsed="true"] .service-btn img { width: 1.25rem; height: 1.25rem; min-width: 1.25rem; min-height: 1.25rem; aspect-ratio: 1; object-fit: contain; }
+    [data-collapsed="true"] .service-btn img { width: 1.5rem; height: 1.5rem; min-width: 1.5rem; min-height: 1.5rem; aspect-ratio: 1; object-fit: contain; }
     [data-collapsed="true"] .service-row { justify-content: center; }
     [data-collapsed="true"] .mute-all-btn { display: none; }
     [data-collapsed="true"] .drag-handle { display: none; }
     [data-collapsed="true"] .service-more-btn { display: none; }
     [data-collapsed="true"] .add-btn-content { padding: 0.5rem; }
-    [data-collapsed="true"] .add-btn-content span:first-child { width: 1.25rem; height: 1.25rem; min-width: 1.25rem; min-height: 1.25rem; display: flex; align-items: center; justify-content: center; }
+    [data-collapsed="true"] .add-btn-content span:first-child { width: 1.5rem; height: 1.5rem; min-width: 1.5rem; min-height: 1.5rem; display: flex; align-items: center; justify-content: center; }
     [data-collapsed="true"] #sidebar-logo { display: none; }
     [data-collapsed="true"] #sidebar-icon { display: flex; }
     [data-collapsed="false"] #sidebar-icon { display: none; }
@@ -55,6 +55,8 @@
     [data-theme="light"] .service-btn { color: #71717a !important; }
     [data-theme="light"] .service-btn:hover { color: #27272a !important; }
     [data-theme="light"] .service-btn.text-zinc-100 { color: #18181b !important; }
+    [data-theme="light"] .service-btn img { background-color: rgba(228,228,231,0.35) !important; }
+    [data-theme="light"] #sidebar-icon { background: transparent !important; }
     [data-theme="light"] .service-dropdown, [data-theme="light"] .sidebar-dropdown { background-color: #e4e4e7 !important; border-color: #d4d4d8 !important; }
     [data-theme="light"] .service-dropdown button, [data-theme="light"] .sidebar-dropdown button { color: #52525b !important; }
     [data-theme="light"] .service-dropdown button:hover, [data-theme="light"] .sidebar-dropdown button:hover { background-color: #d4d4d8 !important; color: #18181b !important; }
@@ -103,7 +105,7 @@
     <aside id="sidebar" class="w-56 backdrop-blur-sm border-r border-zinc-600/50 flex flex-col flex-shrink-0 transition-all duration-200 ease-out" data-collapsed="false" style="background-color:rgba(33,33,36,0.95)">
       <div id="sidebar-logo-wrap" class="flex justify-center items-center py-3 px-2 border-b border-zinc-600/30">
         <img id="sidebar-logo" src="assets/logo-fundo-escuro.png" alt="Tim Workspaces" class="h-12 w-auto object-contain" onerror="this.style.display='none'">
-        <img id="sidebar-icon" src="assets/icone-fundo-escuro.png" alt="" class="hidden w-8 h-8 object-contain flex-shrink-0" onerror="this.style.display='none'">
+        <img id="sidebar-icon" src="assets/icone-fundo-escuro.png" alt="" class="hidden w-10 h-10 object-contain flex-shrink-0" onerror="this.style.display='none'">
       </div>
       <div class="flex items-center justify-between px-1 py-1">
         <button type="button" id="btn-collapse" class="p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors shrink-0" title="Recolher barra">

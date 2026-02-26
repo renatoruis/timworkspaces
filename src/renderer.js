@@ -8,8 +8,7 @@ const THEME_KEY = 'timworkspaces-theme';
 const DEFAULT_URL_KEY = 'timworkspaces-default-url';
 const DEFAULT_URL_FALLBACK = 'https://timdevops.com.br';
 
-// Link do repositório GitHub – altere para o seu repositório
-const GITHUB_REPO_URL = '#'; // Ex.: https://github.com/seu-usuario/tim-workspaces
+const GITHUB_REPO_URL = 'https://github.com/renatoruis/timworkspaces';
 let services = [];
 let activeServiceId = null;
 let activeWebview = null;
@@ -33,10 +32,10 @@ const MUTE_SCRIPT = `
 `;
 
 const PRESET_SERVICES = [
-  { name: 'Gmail', url: 'https://mail.google.com' },
+  { name: 'Gmail', url: 'https://mail.google.com', icon: 'https://cdn.simpleicons.org/gmail' },
   { name: 'WhatsApp', url: 'https://web.whatsapp.com', icon: 'https://web.whatsapp.com/favicon.ico' },
   { name: 'Microsoft Teams', url: 'https://teams.microsoft.com' },
-  { name: 'Google Chat', url: 'https://chat.google.com' },
+  { name: 'Google Chat', url: 'https://chat.google.com', icon: 'https://cdn.simpleicons.org/googlechat' },
   { name: 'Slack', url: 'https://app.slack.com' },
   { name: 'Telegram', url: 'https://web.telegram.org' },
   { name: 'Discord', url: 'https://discord.com/app' },
@@ -52,6 +51,8 @@ let inputUrlEl;
 
 const FAVICON_FALLBACKS = {
   'web.whatsapp.com': 'https://web.whatsapp.com/favicon.ico',
+  'mail.google.com': 'https://cdn.simpleicons.org/gmail',
+  'chat.google.com': 'https://cdn.simpleicons.org/googlechat',
 };
 
 function getDefaultUrl() {
@@ -466,7 +467,7 @@ function renderSidebar() {
     const fallbackIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2374757e'/%3E%3C/svg%3E";
     img.src = iconUrl || fallbackIcon;
     img.alt = '';
-    img.className = 'w-5 h-5 rounded flex-shrink-0 bg-zinc-600/50';
+    img.className = 'w-6 h-6 rounded flex-shrink-0 bg-zinc-600/50 service-icon-img';
     img.onerror = () => { img.src = fallbackIcon; };
 
     const label = document.createElement('span');
@@ -600,12 +601,13 @@ function renderContentArea() {
 
   const webviewContainer = document.createElement('div');
   webviewContainer.className = 'flex-1 min-h-0 relative';
-  const webview = document.createElement('webview');
-  webview.partition = 'persist:timworkspaces';
-  webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
-  webview.className = 'w-full h-full border-0';
   const serviceId = active?.id ?? 'default';
   const currentUrl = active?.url ?? getDefaultUrl();
+  const webview = document.createElement('webview');
+  const partitionId = (serviceId && serviceId !== 'default') ? serviceId.replace(/[^a-zA-Z0-9_-]/g, '') : 'default';
+  webview.partition = 'persist:timworkspaces-' + partitionId;
+  webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+  webview.className = 'w-full h-full border-0';
   injectMuteIfNeeded(webview, serviceId);
   webview.src = currentUrl;
 
@@ -627,7 +629,7 @@ function renderContentArea() {
     } catch (_) {}
     loadingBar.classList.remove('hidden');
     try {
-      const finalUrl = await window.electronAPI.openGoogleAuth(targetUrl);
+      const finalUrl = await window.electronAPI.openGoogleAuth(targetUrl, webview.partition);
       if (finalUrl && activeWebview === webview) {
         webview.src = finalUrl;
       } else if (!finalUrl && activeWebview === webview) {
@@ -643,8 +645,27 @@ function renderContentArea() {
   contentAreaEl.appendChild(webviewContainer);
   activeWebview = webview;
 
-  webview.addEventListener('did-start-loading', () => loadingBar.classList.remove('hidden'));
-  webview.addEventListener('did-finish-load', () => loadingBar.classList.add('hidden'));
+  let loadingTimeout = null;
+  function showLoadingBar() {
+    loadingBar.classList.remove('hidden');
+    if (!loadingTimeout) {
+      loadingTimeout = setTimeout(() => {
+        loadingBar.classList.add('hidden');
+        loadingTimeout = null;
+      }, 8000);
+    }
+  }
+  function hideLoadingBar() {
+    if (loadingTimeout) {
+      clearTimeout(loadingTimeout);
+      loadingTimeout = null;
+    }
+    loadingBar.classList.add('hidden');
+  }
+  webview.addEventListener('did-start-loading', showLoadingBar);
+  webview.addEventListener('did-finish-load', hideLoadingBar);
+  webview.addEventListener('did-stop-loading', hideLoadingBar);
+  webview.addEventListener('did-fail-load', hideLoadingBar);
 
   if (hasActiveService) {
     document.getElementById('toolbar-refresh')?.addEventListener('click', () => activeWebview?.reload());

@@ -3,5 +3,5 @@ const { contextBridge, ipcRenderer } = require('electron');
 contextBridge.exposeInMainWorld('electronAPI', {
   openExternal: (url) => ipcRenderer.invoke('open-external', url),
   toggleFullscreen: () => ipcRenderer.invoke('toggle-fullscreen'),
-  openGoogleAuth: (url) => ipcRenderer.invoke('open-google-auth', url)
+  openGoogleAuth: (url, partition) => ipcRenderer.invoke('open-google-auth', url, partition)
 });

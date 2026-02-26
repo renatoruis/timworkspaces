@@ -38,15 +38,16 @@ function isGoogleAuthUrl(url) {
   }
 }
 
-ipcMain.handle('open-google-auth', (_, url) => {
+ipcMain.handle('open-google-auth', (_, url, partition) => {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) return null;
+  const authPartition = (partition && typeof partition === 'string') ? partition : GOOGLE_AUTH_PARTITION;
   return new Promise((resolve) => {
     const authWin = new BrowserWindow({
       width: 480,
       height: 700,
       title: 'Login Google - Tim Workspaces',
       webPreferences: {
-        partition: GOOGLE_AUTH_PARTITION,
+        partition: authPartition,
         nodeIntegration: false,
         contextIsolation: true
       }

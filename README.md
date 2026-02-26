@@ -1,12 +1,22 @@
-# Tim Workspaces
+<p align="center">
+  <img src="website/assets/logo-fundo-escuro.png" alt="Tim Workspaces" width="200">
+</p>
+
+<h1 align="center">Tim Workspaces</h1>
+
+<p align="center">
+  <a href="https://github.com/renatoruis/timworkspaces/releases"><img src="https://img.shields.io/github/v/release/renatoruis/timworkspaces?include_prereleases" alt="Release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/renatoruis/timworkspaces" alt="License"></a>
+  <a href="https://github.com/renatoruis/timworkspaces/stargazers"><img src="https://img.shields.io/github/stars/renatoruis/timworkspaces" alt="Stars"></a>
+  <a href="https://github.com/renatoruis/timworkspaces"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform"></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-37-47848f" alt="Electron"></a>
+</p>
 
 Agregador de ferramentas web em um único ambiente: WhatsApp, Gmail, Microsoft Teams, Slack e outras aplicações que você usa no dia a dia. Centralize suas comunicações e produtividade em uma única janela.
 
 ## Screenshot
 
-![Tim Workspaces](docs/screenshots/timworkspaces.png)
-
-> Screenshots serão adicionados em `docs/screenshots/`.
+![Tim Workspaces](website/screenshot-1.png)
 
 ## Instalação e execução
 
@@ -32,7 +42,9 @@ npm run start
 ## Funcionalidades principais
 
 - **Integração múltipla** — WhatsApp, Gmail, Teams, Slack e outras ferramentas em abas
+- **Contas separadas** — Cada aba mantém sua própria sessão (múltiplas contas Gmail, etc.)
 - **Interface unificada** — Uma janela para todas as suas aplicações web
+- **Tema claro/escuro** — Alternância entre modos de visualização
 - **Cross-platform** — Funciona em Windows, macOS e Linux
 - **Leve e simples** — Interface minimalista e funcional
 - **Gratuito** — Sem custos e sempre será
@@ -46,7 +58,7 @@ npm run start
 
 A pasta `/website` contém a landing page do projeto. Para publicar:
 
-1. Adicione `logo.png` e `screenshot.png` em `/website`
+1. A landing page já inclui logo e screenshots
 2. Hospede o conteúdo em GitHub Pages, Vercel ou similar, apontando para a pasta `website`
 
 ## Release
@@ -55,7 +67,7 @@ Ao fazer merge na `main`, a pipeline GitHub Actions compila para Windows, macOS 
 
 ## Download
 
-Versões compiladas e instaladores estão disponíveis em: **[Website / Releases](https://github.com/renatoruis/timworkspaces/releases)**
+Versões compiladas e instaladores estão disponíveis em: **[Releases](https://github.com/renatoruis/timworkspaces/releases)**
 
 ## Contribuir
 
