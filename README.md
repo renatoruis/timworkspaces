@@ -74,6 +74,7 @@ Versões compiladas e instaladores estão disponíveis em: **[Releases](https://
 Baixe o `.dmg` na versão compatível (arm64 para Apple Silicon, x64 para Intel). Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco.
 
 **Problemas comuns:**
+- *"O app está corrompido e não pode ser aberto"* — O app não é assinado (open source). Clique com o botão direito no app → "Abrir" na primeira vez, ou execute no Terminal: `xattr -cr /Applications/Tim\ Workspaces.app`
 - *"The volume can't be ejected"* — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para Aplicativos primeiro.
 - *Não sobrescreve a instalação anterior* — Exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova.
 
