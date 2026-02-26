@@ -73,6 +73,12 @@ jobs:
         with:
           path: release-artifacts
 
+      - name: Collect installers only
+        run: |
+          mkdir -p release-files
+          find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
+          ls -la release-files/
+
       - name: Create Release
         uses: softprops/action-gh-release@v2
         with:
@@ -81,7 +87,7 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            release-artifacts/**/*
+            release-files/*
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
