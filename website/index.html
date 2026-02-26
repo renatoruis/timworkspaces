@@ -5,19 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tim Workspaces</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    // Pipeline pode substituir via sed: version e assets
-    window.RELEASE_CONFIG = window.RELEASE_CONFIG || {
-      repo: "renatoruis/timworkspaces",
-      releasesUrl: "https://github.com/renatoruis/timworkspaces/releases/latest",
-      version: "1.0.0",
-      assets: {
-        windows: null,  // ex: "TimWorkspaces-Setup-1.0.0.exe"
-        macos: null,    // ex: "TimWorkspaces-1.0.0.dmg"
-        linux: null     // ex: "TimWorkspaces-1.0.0.AppImage" ou "TimWorkspaces-1.0.0-amd64.deb"
-      }
-    };
-  </script>
 </head>
 <body class="bg-zinc-950 text-zinc-100 min-h-screen antialiased">
   <div class="max-w-4xl mx-auto px-6 py-16">
@@ -55,26 +42,31 @@
 
     <section class="mb-20">
       <h2 class="text-xl font-medium text-zinc-300 mb-6 text-center">Download</h2>
-      <div class="flex flex-wrap justify-center gap-4">
-        <a href="#" id="dl-windows" class="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 transition-colors text-zinc-200">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/>
-          </svg>
-          <span>Windows (.exe)</span>
-        </a>
-        <a href="#" id="dl-macos" class="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 transition-colors text-zinc-200">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19z"/>
-          </svg>
-          <span>macOS (.dmg)</span>
-        </a>
-        <a href="#" id="dl-linux" class="inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 transition-colors text-zinc-200">
-          <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-            <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 2.799-.66.055-.853-.558-1.446-.558-.598 0-1.169.304-1.82.646-.619.324-1.263.675-1.263 1.514 0 .72.606 1.222 1.093 1.575.673.491 1.594.926 2.568 1.039 1.378.158 2.745-.187 3.844-.891.384-.237.725-.525 1.022-.848.256.213.526.415.813.589 1.218.754 2.545 1.102 3.96 1.102.483 0 .966-.047 1.447-.139 2.361-.444 4.014-1.773 4.655-4.088.732-2.639-.451-4.091-1.885-5.257-.998-.815-2.162-1.411-3.491-1.765-.231-.062-.454-.118-.666-.167-.192-.044-.373-.083-.541-.116-.197-.038-.382-.07-.552-.094C13.384.014 12.896 0 12.504 0zM9.215 2.992c.542-.075 1.065-.226 1.565-.446.622-.273 1.174-.666 1.657-1.174 1.057-1.088 1.587-2.523 1.378-3.992-.963.059-2.13.646-2.84 1.452-.701.797-1.316 1.923-1.428 3.139.405-.037.819-.016 1.268-.019z"/>
-          </svg>
-          <span>Linux (.AppImage / .deb)</span>
-        </a>
+      <p id="dl-version" class="text-center text-zinc-500 text-sm mb-6">Carregando…</p>
+      <div class="flex flex-col items-center gap-6 mb-8">
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="#" id="dl-macos" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg">
+            <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.81-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19z"/>
+            </svg>
+            <span>macOS (.dmg)</span>
+          </a>
+          <a href="#" id="dl-linux" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl bg-zinc-800 hover:bg-zinc-700 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg">
+            <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor">
+              <path d="M12.504 0c-.155 0-.315.008-.48.021-4.226.333-3.105 4.807-3.17 6.298-.076 1.092-.3 1.953-1.05 3.02-.885 1.051-2.127 2.75-2.716 2.799-.66.055-.853-.558-1.446-.558-.598 0-1.169.304-1.82.646-.619.324-1.263.675-1.263 1.514 0 .72.606 1.222 1.093 1.575.673.491 1.594.926 2.568 1.039 1.378.158 2.745-.187 3.844-.891.384-.237.725-.525 1.022-.848.256.213.526.415.813.589 1.218.754 2.545 1.102 3.96 1.102.483 0 .966-.047 1.447-.139 2.361-.444 4.014-1.773 4.655-4.088.732-2.639-.451-4.091-1.885-5.257-.998-.815-2.162-1.411-3.491-1.765-.231-.062-.454-.118-.666-.167-.192-.044-.373-.083-.541-.116-.197-.038-.382-.07-.552-.094C13.384.014 12.896 0 12.504 0zM9.215 2.992c.542-.075 1.065-.226 1.565-.446.622-.273 1.174-.666 1.657-1.174 1.057-1.088 1.587-2.523 1.378-3.992-.963.059-2.13.646-2.84 1.452-.701.797-1.316 1.923-1.428 3.139.405-.037.819-.016 1.268-.019z"/>
+            </svg>
+            <span>Linux (.AppImage / .deb)</span>
+          </a>
+        </div>
+        <div id="dl-linux-extra" class="flex flex-wrap justify-center gap-2 text-sm"></div>
+        <div class="pt-4 border-t border-zinc-700/50 w-full max-w-md">
+          <p class="text-zinc-500 text-xs text-center mb-2">Outras plataformas</p>
+          <div id="dl-windows" class="flex flex-wrap justify-center gap-2"></div>
+        </div>
       </div>
+      <p class="text-center">
+        <a href="https://github.com/renatoruis/timworkspaces/releases" id="dl-all" class="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Ver todas as versões no GitHub →</a>
+      </p>
     </section>
 
     <footer class="text-center text-zinc-500 text-sm">
@@ -89,18 +81,51 @@
 
   <script>
     (function() {
-      var c = window.RELEASE_CONFIG;
-      var repo = c.repo, ver = c.version || '1.0.0', a = c.assets;
-      var baseUrl = c.releasesUrl || 'https://github.com/' + repo + '/releases/latest';
-      var dlBase = 'https://github.com/' + repo + '/releases/download/v' + ver + '/';
-      var dl = function(id, asset) {
-        var el = document.getElementById(id);
-        if (!el) return;
-        el.href = asset ? (dlBase + asset) : baseUrl;
-      };
-      dl('dl-windows', a.windows);
-      dl('dl-macos', a.macos);
-      dl('dl-linux', a.linux);
+      var repo = 'renatoruis/timworkspaces';
+      var releasesUrl = 'https://api.github.com/repos/' + repo + '/releases/latest';
+
+      function byExt(name) {
+        var n = name.toLowerCase();
+        if (n.endsWith('.dmg')) return 'macos';
+        if (n.endsWith('.appimage')) return 'linux-appimage';
+        if (n.endsWith('.deb')) return 'linux-deb';
+        if (n.endsWith('.exe')) return n.includes('setup') ? 'win-setup' : 'win-portable';
+        return null;
+      }
+
+      fetch(releasesUrl).then(function(r) { return r.json(); }).then(function(data) {
+        var ver = document.getElementById('dl-version');
+        var assets = data.assets || [];
+        var macDmg = null, linuxAppImage = null, linuxDeb = null, winSetup = null, winPortable = null;
+        for (var i = 0; i < assets.length; i++) {
+          var a = assets[i], t = byExt(a.name);
+          if (t === 'macos') macDmg = a.browser_download_url;
+          else if (t === 'linux-appimage') linuxAppImage = a.browser_download_url;
+          else if (t === 'linux-deb') linuxDeb = a.browser_download_url;
+          else if (t === 'win-setup') winSetup = a.browser_download_url;
+          else if (t === 'win-portable') winPortable = a.browser_download_url;
+        }
+        ver.textContent = 'Versão ' + (data.tag_name || '');
+        var mac = document.getElementById('dl-macos');
+        mac.href = macDmg || 'https://github.com/' + repo + '/releases/latest';
+        var linux = document.getElementById('dl-linux');
+        linux.href = linuxAppImage || linuxDeb || 'https://github.com/' + repo + '/releases/latest';
+        var linuxExtra = document.getElementById('dl-linux-extra');
+        if (linuxAppImage && linuxDeb) {
+          linuxExtra.innerHTML = '<a href="' + linuxAppImage + '" class="px-3 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs">AppImage</a><a href="' + linuxDeb + '" class="px-3 py-1.5 rounded-lg bg-zinc-800/80 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-xs">.deb</a>';
+        }
+        var winBox = document.getElementById('dl-windows');
+        if (winSetup || winPortable) {
+          var html = '';
+          if (winSetup) html += '<a href="' + winSetup + '" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>Windows (Setup)</a>';
+          if (winPortable) html += '<a href="' + winPortable + '" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg bg-zinc-800/60 hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 text-sm"><svg class="w-4 h-4" viewBox="0 0 24 24" fill="currentColor"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>Windows (Portable)</a>';
+          winBox.innerHTML = html;
+        }
+      }).catch(function() {
+        document.getElementById('dl-version').textContent = '';
+        document.getElementById('dl-macos').href = 'https://github.com/' + repo + '/releases/latest';
+        document.getElementById('dl-linux').href = 'https://github.com/' + repo + '/releases/latest';
+      });
     })();
   </script>
 </body>
