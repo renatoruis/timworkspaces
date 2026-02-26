@@ -69,6 +69,19 @@ Ao fazer merge na `main`, a pipeline GitHub Actions compila para Windows, macOS 
 
 Versões compiladas e instaladores estão disponíveis em: **[Releases](https://github.com/renatoruis/timworkspaces/releases)**
 
+### Instalação no macOS
+
+Há duas opções de instalação:
+
+| Formato | Descrição |
+|---------|-----------|
+| **`.pkg`** (recomendado) | Instalador que substitui a versão anterior automaticamente. Use este se tiver problemas com DMG. |
+| **`.dmg`** | Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco. |
+
+**Problemas comuns com DMG:**
+- *"The volume can't be ejected"* — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para Aplicativos primeiro.
+- *Não sobrescreve a instalação anterior* — Use o instalador `.pkg` ou exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova.
+
 ## Contribuir
 
 Contribuições são bem-vindas! Você pode:

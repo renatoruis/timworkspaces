@@ -76,7 +76,7 @@ jobs:
       - name: Collect installers only
         run: |
           mkdir -p release-files
-          find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
+          find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
           ls -la release-files/
 
       - name: Delete existing release (if any)
