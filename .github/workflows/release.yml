@@ -28,7 +28,7 @@ jobs:
           node-version: "20"
 
       - name: Setup pnpm (Corepack)
-        run: corepack enable && corepack prepare pnpm@9 --activate
+        run: corepack enable && corepack prepare pnpm@10 --activate
 
       - name: Install Linux dependencies
         if: matrix.platform == 'linux'
