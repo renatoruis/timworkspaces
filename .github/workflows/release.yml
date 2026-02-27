@@ -3,6 +3,10 @@ name: Build and Release
 on:
   push:
     branches: [main]
+    paths-ignore:
+      - 'website/**'
+      - '**.md'
+      - '.gitignore'
 
 jobs:
   release:
