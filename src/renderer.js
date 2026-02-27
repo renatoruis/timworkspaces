@@ -24,11 +24,11 @@ const THEME_TOASTS_DARK = [
   'Agora sim, menos cansaço na vista'
 ];
 const MUTE_TOASTS_SILENCE = ['Shh... ninguém te perturba mais', 'Silêncio total, modo foco ligado'];
-const MUTE_TOASTS_ACTIVE = ['As notificações voltaram, cuidado!', 'Voltou a bagunça'];
+const MUTE_TOASTS_ACTIVE = ['As notificações voltaram, cuidado!', 'Voltou a bagunça', 'Agora aguenta as notificações!'];
 const ADD_SERVICE_TOASTS = ['Boa! Mais um na coleção', 'Adicionado com sucesso, chefia', 'Pronto, tá na lista'];
-const SIDEBAR_COLLAPSE_TOASTS = ['Minimalista mode on', 'Mais espaço pra trabalhar'];
-const SIDEBAR_EXPAND_TOASTS = ['Voltou tudo'];
-const UPDATE_OK_TOASTS = ['Tá tudo em dia!', 'Nada de novo por aqui', 'Continua na última'];
+const SIDEBAR_COLLAPSE_TOASTS = ['Minimalista MODE=ON', 'Mais espaço pra trabalhar'];
+const SIDEBAR_EXPAND_TOASTS = ['Agora da pra ver melhor :)'];
+const UPDATE_OK_TOASTS = ['Tá tudo em dia!', 'Nada de novo por aqui', 'Tá atualizadinho!'];
 function formatUpdateAvailableToast(version) {
   const msgs = ['Nova versão %s disponível! Atualiza aí', 'Tem a %s pronta! Vai lá pegar', 'Saiu a %s, corre lá'];
   return pick(msgs).replace('%s', version);

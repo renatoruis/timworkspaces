@@ -4,6 +4,11 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  dmg-builder@25.1.8:
+    hash: 2fb05812465ff64f6877de20fde12cb945984dd3d24c308372060e3b03a0c24c
+    path: patches/dmg-builder@25.1.8.patch
+
 importers:
 
   .:
@@ -1588,7 +1593,7 @@ snapshots:
       chromium-pickle-js: 0.2.0
       config-file-ts: 0.2.8-rc1
       debug: 4.4.3
-      dmg-builder: 25.1.8(electron-builder-squirrel-windows@25.1.8)
+      dmg-builder: 25.1.8(patch_hash=2fb05812465ff64f6877de20fde12cb945984dd3d24c308372060e3b03a0c24c)(electron-builder-squirrel-windows@25.1.8)
       dotenv: 16.6.1
       dotenv-expand: 11.0.7
       ejs: 3.1.10
@@ -1916,7 +1921,7 @@ snapshots:
       minimatch: 3.1.5
       p-limit: 3.1.0
 
-  dmg-builder@25.1.8(electron-builder-squirrel-windows@25.1.8):
+  dmg-builder@25.1.8(patch_hash=2fb05812465ff64f6877de20fde12cb945984dd3d24c308372060e3b03a0c24c)(electron-builder-squirrel-windows@25.1.8):
     dependencies:
       app-builder-lib: 25.1.8(dmg-builder@25.1.8)(electron-builder-squirrel-windows@25.1.8)
       builder-util: 25.1.7
@@ -1978,7 +1983,7 @@ snapshots:
       builder-util: 25.1.7
       builder-util-runtime: 9.2.10
       chalk: 4.1.2
-      dmg-builder: 25.1.8(electron-builder-squirrel-windows@25.1.8)
+      dmg-builder: 25.1.8(patch_hash=2fb05812465ff64f6877de20fde12cb945984dd3d24c308372060e3b03a0c24c)(electron-builder-squirrel-windows@25.1.8)
       fs-extra: 10.1.0
       is-ci: 3.0.1
       lazy-val: 1.0.5

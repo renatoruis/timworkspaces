@@ -1,0 +1,58 @@
+diff --git a/out/dmg.js b/out/dmg.js
+index 94af8a1b68e8da1c412ef147a35cafd6cf65010d..9374910cabbe5cb89f11865a1a7823ca56ccb633 100644
+--- a/out/dmg.js
++++ b/out/dmg.js
+@@ -274,6 +274,53 @@ async function customizeDmg(volumePath, specification, packager, backgroundFile)
+     catch (_error) {
+         await executePython("python");
+     }
++    if (backgroundFile != null && process.platform === "darwin" && env.backgroundFile && !process.env.CI) {
++        const volName = path.basename(volumePath);
++        const bgName = path.basename(env.backgroundFile);
++        const dsStorePath = path.join(volumePath, ".DS_Store");
++        const winW = (window && window.width) || 540;
++        const winH = (window && window.height) || 380;
++        const winX = (window && window.x != null) ? window.x : 100;
++        const winY = (window && window.y != null) ? window.y : 100;
++        const iconSz = specification.iconSize || 80;
++        const textSz = iconTextSize;
++        const appName = `${packager.appInfo.productFilename}.app`;
++        const posClauses = (specification.contents || []).map(c => {
++            const name = c.name || (c.type === "link" ? path.basename(c.path || "Applications") : appName);
++            return `set position of item "${String(name).replace(/"/g, '\\"')}" to {${c.x}, ${c.y}}`;
++        }).join("\n    ");
++        const ascript = `tell application "Finder"
++  tell disk "${volName.replace(/"/g, '\\"')}"
++    open
++    set current view of container window to icon view
++    tell container window
++      set bounds to {${winX}, ${winY}, ${winX + winW}, ${winY + winH}}
++      set toolbar visible to false
++      set statusbar visible to false
++    end tell
++    set opts to the icon view options of container window
++    tell opts
++      set icon size to ${iconSz}
++      set text size to ${textSz}
++      set arrangement to not arranged
++    end tell
++    set background picture of opts to file ".background:${bgName.replace(/"/g, '\\"')}"
++    ${posClauses}
++    close
++    open
++  end tell
++  delay 4
++end tell`;
++        try {
++            await (0, builder_util_1.exec)("osascript", ["-e", ascript]);
++            for (let i = 0; i < 10; i++) {
++                if (await (0, builder_util_1.exists)(dsStorePath))
++                    break;
++                await new Promise(r => setTimeout(r, 500));
++            }
++        }
++        catch (_e) { }
++    }
+     return packager.packagerOptions.effectiveOptionComputed == null || !(await packager.packagerOptions.effectiveOptionComputed({ volumePath, specification, packager }));
+ }
+ async function computeDmgEntries(specification, volumePath, packager, asyncTaskManager) {

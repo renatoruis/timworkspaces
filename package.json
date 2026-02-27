@@ -20,8 +20,8 @@
     "build:linux": "electron-builder --linux"
   },
   "devDependencies": {
-    "electron-builder": "^25.1.8",
-    "electron": "^37.0.0"
+    "electron": "^37.0.0",
+    "electron-builder": "^25.1.8"
   },
   "build": {
     "appId": "com.timworkspaces.app",
@@ -93,6 +93,9 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "electron"
-    ]
+    ],
+    "patchedDependencies": {
+      "dmg-builder@25.1.8": "patches/dmg-builder@25.1.8.patch"
+    }
   }
 }
