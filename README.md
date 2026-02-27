@@ -69,6 +69,10 @@ Ao fazer merge na `main`, a pipeline GitHub Actions compila para Windows, macOS 
 
 Versões compiladas e instaladores estão disponíveis em: **[Releases](https://github.com/renatoruis/timworkspaces/releases)**
 
+### Instalação no Windows
+
+Baixe o `.exe` (instalador NSIS ou portable). Se o SmartScreen bloquear: clique em **Mais informações** → **Executar assim mesmo**. O app não é assinado (open source), mas o código é público no GitHub.
+
 ### Instalação no macOS
 
 Baixe o `.dmg` na versão compatível (arm64 para Apple Silicon, x64 para Intel). Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco.

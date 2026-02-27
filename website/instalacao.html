@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Instalação — Tim Workspaces</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="text-zinc-100 min-h-screen antialiased" style="background-color:#212124">
+  <div class="max-w-2xl mx-auto px-6 py-16">
+    <header class="mb-12">
+      <a href="index.html" class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors mb-6">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+        Voltar
+      </a>
+      <div class="flex justify-center mb-4">
+        <img src="assets/logo-fundo-escuro.png" alt="Tim Workspaces" class="h-16 w-auto object-contain">
+      </div>
+      <h1 class="text-2xl font-medium text-zinc-200 text-center">Instruções de instalação</h1>
+      <p class="text-zinc-500 text-center text-sm mt-2">Problemas comuns e como resolver</p>
+    </header>
+
+    <div class="space-y-10">
+      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
+        <h2 class="text-lg font-medium text-zinc-200 mb-3">Windows — SmartScreen</h2>
+        <p class="text-zinc-500 text-sm mb-3">
+          O Microsoft Defender SmartScreen pode bloquear a execução: <em>&quot;O Windows protegeu seu PC&quot;</em> ou <em>&quot;Um app não reconhecido foi impedido de iniciar&quot;</em>.
+        </p>
+        <p class="text-zinc-400 text-sm">
+          O Tim Workspaces é open source e não possui certificado de assinatura (o que custa centenas de dólares por ano). O código é público no <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300">GitHub</a>.
+        </p>
+        <p class="text-zinc-300 text-sm mt-3 font-medium">Como executar:</p>
+        <ol class="list-decimal list-inside text-zinc-500 text-sm mt-1 space-y-1">
+          <li>Clique em <strong>Mais informações</strong></li>
+          <li>Clique em <strong>Executar assim mesmo</strong></li>
+        </ol>
+      </section>
+
+      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
+        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — &quot;O app está corrompido&quot;</h2>
+        <p class="text-zinc-500 text-sm mb-3">
+          A mensagem <em>&quot;Tim Workspaces.app está corrompido e não pode ser aberto&quot;</em> aparece porque o app não é assinado com certificado Apple Developer.
+        </p>
+        <p class="text-zinc-300 text-sm mt-3 font-medium">Opção 1 — Pela interface:</p>
+        <p class="text-zinc-500 text-sm mt-1">Clique com o botão direito no app → <strong>Abrir</strong> (na primeira vez). Depois pode abrir normalmente.</p>
+        <p class="text-zinc-300 text-sm mt-4 font-medium">Opção 2 — Pelo Terminal:</p>
+        <p class="text-zinc-500 text-sm mt-1">Execute para remover o atributo de quarentena:</p>
+        <code class="block mt-2 text-zinc-300 bg-zinc-700/50 rounded-lg px-4 py-2 text-sm font-mono">xattr -cr /Applications/Tim\ Workspaces.app</code>
+      </section>
+
+      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
+        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — DMG não ejetar</h2>
+        <p class="text-zinc-500 text-sm">
+          <em>&quot;The volume can't be ejected&quot;</em> — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para a pasta Aplicativos primeiro.
+        </p>
+      </section>
+
+      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
+        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — Não sobrescreve versão antiga</h2>
+        <p class="text-zinc-500 text-sm">
+          Exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova, ou o sistema pode manter a versão anterior.
+        </p>
+      </section>
+    </div>
+
+    <footer class="text-center mt-16">
+      <a href="index.html" class="text-sky-400 hover:text-sky-300 text-sm">← Voltar para a página inicial</a>
+    </footer>
+  </div>
+</body>
+</html>

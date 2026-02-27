@@ -1,0 +1,102 @@
+{
+  "version": 2,
+  "categories": [
+    {
+      "id": "comunicacao",
+      "label": "Comunicação",
+      "services": [
+        { "name": "Gmail",           "url": "https://mail.google.com",         "icon": "https://cdn.simpleicons.org/gmail" },
+        { "name": "Outlook",         "url": "https://outlook.live.com",         "icon": "https://res.public.onecdn.static.microsoft/owamail/20260213001.08/resources/images/favicons/mail-seen.ico" },
+        { "name": "Yahoo Mail",      "url": "https://mail.yahoo.com",           "icon": "https://s.yimg.com/wm/mbr/images/yahoo-yep-favicon-v1.ico" },
+        { "name": "ProtonMail",      "url": "https://mail.proton.me",           "icon": "https://cdn.simpleicons.org/proton" },
+        { "name": "WhatsApp",        "url": "https://web.whatsapp.com",         "icon": "https://cdn.simpleicons.org/whatsapp" },
+        { "name": "Telegram",        "url": "https://web.telegram.org",         "icon": "https://cdn.simpleicons.org/telegram" },
+        { "name": "Discord",         "url": "https://discord.com/app",          "icon": "https://cdn.simpleicons.org/discord" },
+        { "name": "Signal",          "url": "https://signal.org",               "icon": "https://cdn.simpleicons.org/signal" },
+        { "name": "Slack",           "url": "https://app.slack.com",            "icon": "https://a.slack-edge.com/e6a93c1/img/icons/favicon-32.png" },
+        { "name": "Microsoft Teams", "url": "https://teams.microsoft.com",      "icon": "https://statics.teams.cdn.office.net/evergreen-assets/icons/microsoft_teams_logo_refresh_v2025.ico" },
+        { "name": "Google Chat",     "url": "https://chat.google.com",          "icon": "https://cdn.simpleicons.org/googlechat" },
+        { "name": "Zoom",            "url": "https://zoom.us/wc",               "icon": "https://cdn.simpleicons.org/zoom" },
+        { "name": "Google Meet",     "url": "https://meet.google.com",          "icon": "https://cdn.simpleicons.org/googlemeet" },
+        { "name": "Webex",           "url": "https://web.webex.com",            "icon": "https://cdn.simpleicons.org/webex" }
+      ]
+    },
+    {
+      "id": "produtividade",
+      "label": "Produtividade",
+      "services": [
+        { "name": "Google Drive",    "url": "https://drive.google.com",         "icon": "https://cdn.simpleicons.org/googledrive" },
+        { "name": "Google Calendar", "url": "https://calendar.google.com",      "icon": "https://cdn.simpleicons.org/googlecalendar" },
+        { "name": "OneDrive",        "url": "https://onedrive.live.com",        "icon": "https://cdn.simpleicons.org/onedrive" },
+        { "name": "Dropbox",         "url": "https://www.dropbox.com",          "icon": "https://cdn.simpleicons.org/dropbox" },
+        { "name": "Notion",          "url": "https://www.notion.so",            "icon": "https://cdn.simpleicons.org/notion" },
+        { "name": "Obsidian",        "url": "https://obsidian.md",              "icon": "https://cdn.simpleicons.org/obsidian" },
+        { "name": "Trello",          "url": "https://trello.com",               "icon": "https://cdn.simpleicons.org/trello" },
+        { "name": "Asana",           "url": "https://app.asana.com",            "icon": "https://cdn.simpleicons.org/asana" },
+        { "name": "Monday",          "url": "https://monday.com",               "icon": "https://cdn.simpleicons.org/monday" },
+        { "name": "Todoist",         "url": "https://todoist.com",              "icon": "https://cdn.simpleicons.org/todoist" },
+        { "name": "ClickUp",         "url": "https://app.clickup.com",          "icon": "https://cdn.simpleicons.org/clickup" },
+        { "name": "Linear",          "url": "https://linear.app",               "icon": "https://cdn.simpleicons.org/linear" }
+      ]
+    },
+    {
+      "id": "dev",
+      "label": "Dev / DevOps",
+      "services": [
+        { "name": "GitHub",          "url": "https://github.com",               "icon": "https://cdn.simpleicons.org/github" },
+        { "name": "GitLab",          "url": "https://gitlab.com",               "icon": "https://cdn.simpleicons.org/gitlab" },
+        { "name": "Bitbucket",       "url": "https://bitbucket.org",            "icon": "https://cdn.simpleicons.org/bitbucket" },
+        { "name": "Azure DevOps",    "url": "https://dev.azure.com",            "icon": "https://cdn.simpleicons.org/azuredevops" },
+        { "name": "AWS Console",     "url": "https://console.aws.amazon.com",   "icon": "https://cdn.simpleicons.org/amazonaws" },
+        { "name": "GCP Console",     "url": "https://console.cloud.google.com", "icon": "https://cdn.simpleicons.org/googlecloud" },
+        { "name": "Vercel",          "url": "https://vercel.com/dashboard",     "icon": "https://cdn.simpleicons.org/vercel" },
+        { "name": "Netlify",         "url": "https://app.netlify.com",          "icon": "https://cdn.simpleicons.org/netlify" },
+        { "name": "Docker Hub",      "url": "https://hub.docker.com",           "icon": "https://cdn.simpleicons.org/docker" },
+        { "name": "Grafana",         "url": "https://grafana.com",              "icon": "https://cdn.simpleicons.org/grafana" },
+        { "name": "Railway",         "url": "https://railway.app",              "icon": "https://cdn.simpleicons.org/railway" }
+      ]
+    },
+    {
+      "id": "design",
+      "label": "Design",
+      "services": [
+        { "name": "Figma",           "url": "https://www.figma.com",            "icon": "https://cdn.simpleicons.org/figma" },
+        { "name": "Canva",           "url": "https://www.canva.com",            "icon": "https://cdn.simpleicons.org/canva" },
+        { "name": "Miro",            "url": "https://miro.com",                 "icon": "https://cdn.simpleicons.org/miro" },
+        { "name": "Excalidraw",      "url": "https://excalidraw.com",           "icon": "https://excalidraw.com/favicon.ico" }
+      ]
+    },
+    {
+      "id": "ia",
+      "label": "Inteligência Artificial",
+      "services": [
+        { "name": "ChatGPT",         "url": "https://chat.openai.com",          "icon": "https://cdn.simpleicons.org/openai" },
+        { "name": "Claude",          "url": "https://claude.ai",                "icon": "https://cdn.simpleicons.org/anthropic" },
+        { "name": "Gemini",          "url": "https://gemini.google.com",        "icon": "https://cdn.simpleicons.org/googlegemini" },
+        { "name": "Perplexity",      "url": "https://www.perplexity.ai",        "icon": "https://cdn.simpleicons.org/perplexity" },
+        { "name": "Mistral",         "url": "https://chat.mistral.ai",          "icon": "https://cdn.simpleicons.org/mistral" },
+        { "name": "HuggingFace",     "url": "https://huggingface.co",           "icon": "https://cdn.simpleicons.org/huggingface" }
+      ]
+    },
+    {
+      "id": "midia",
+      "label": "Mídia & Entretenimento",
+      "services": [
+        { "name": "YouTube",         "url": "https://www.youtube.com",          "icon": "https://cdn.simpleicons.org/youtube" },
+        { "name": "Spotify Web",     "url": "https://open.spotify.com",         "icon": "https://cdn.simpleicons.org/spotify" },
+        { "name": "Twitch",          "url": "https://www.twitch.tv",            "icon": "https://cdn.simpleicons.org/twitch" },
+        { "name": "Netflix",         "url": "https://www.netflix.com",          "icon": "https://cdn.simpleicons.org/netflix" }
+      ]
+    },
+    {
+      "id": "utilidades",
+      "label": "Utilidades",
+      "services": [
+        { "name": "Google Maps",     "url": "https://www.google.com/maps",      "icon": "https://cdn.simpleicons.org/googlemaps" },
+        { "name": "Google Translate","url": "https://translate.google.com",     "icon": "https://cdn.simpleicons.org/googletranslate" },
+        { "name": "Bitwarden",       "url": "https://vault.bitwarden.com",      "icon": "https://cdn.simpleicons.org/bitwarden" },
+        { "name": "1Password",       "url": "https://my.1password.com",         "icon": "https://cdn.simpleicons.org/1password" }
+      ]
+    }
+  ]
+}

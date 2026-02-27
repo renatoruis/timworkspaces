@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' https: data:;">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.tailwindcss.com; style-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com; img-src 'self' https: data: blob:;">
   <title>Tim Workspaces</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
@@ -16,6 +16,7 @@
     [data-collapsed="true"] .add-btn-content { padding: 0.5rem; }
     [data-collapsed="true"] .add-btn-content span:first-child { width: 1.5rem; height: 1.5rem; min-width: 1.5rem; min-height: 1.5rem; display: flex; align-items: center; justify-content: center; }
     [data-collapsed="true"] #sidebar-logo { display: none; }
+    [data-collapsed="true"] #update-available-banner { display: none !important; }
     [data-collapsed="true"] #sidebar-icon { display: flex; }
     [data-collapsed="false"] #sidebar-icon { display: none; }
     [data-collapsed="true"] .sidebar-menu-btn { display: none; }
@@ -23,8 +24,8 @@
     [data-collapsed="true"] .theme-toggle-btn { display: none; }
     .service-row.dragging { opacity: 0.5; }
     .service-row.drag-over { border-radius: 8px; background: rgba(56, 189, 248, 0.15); }
-    #modal, #modal-delete, #modal-star, #modal-coffee { display: none; }
-    #modal.modal-open, #modal-delete.modal-open, #modal-star.modal-open, #modal-coffee.modal-open { display: flex !important; }
+    #modal, #modal-delete, #modal-star, #modal-coffee, #modal-update, #modal-menu { display: none; }
+    #modal.modal-open, #modal-delete.modal-open, #modal-star.modal-open, #modal-coffee.modal-open, #modal-update.modal-open, #modal-menu.modal-open { display: flex !important; }
     #modal.modal-open .modal-content { animation: modalSlideIn 0.2s ease-out; }
     @keyframes modalSlideIn {
       from { opacity: 0; transform: scale(0.96) translateY(-8px); }
@@ -33,8 +34,12 @@
     .preset-card { transition: transform 0.15s, box-shadow 0.15s; }
     .preset-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
     .preset-card:active { transform: translateY(0); }
-    #toast { opacity: 0; transform: translateY(-8px); pointer-events: none; transition: opacity 0.2s, transform 0.2s; }
-    #toast.show { opacity: 1; transform: translateY(0); pointer-events: auto; }
+    #toast-overlay { opacity: 0; pointer-events: none; transition: opacity 0.25s ease-out; }
+    #toast-overlay.show { opacity: 1; pointer-events: auto; }
+    #toast-card { opacity: 0; transform: scale(0.92) translateY(8px); pointer-events: none; transition: opacity 0.25s ease-out, transform 0.25s ease-out; }
+    #toast-overlay.show #toast-card { opacity: 1; transform: scale(1) translateY(0); }
+    #theme-transition-overlay { opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
+    #theme-transition-overlay.active { opacity: 1; }
     .loading-bar-progress { animation: loadingSlide 1.5s ease-in-out infinite; }
     @keyframes loadingSlide {
       0% { transform: translateX(-100%); }
@@ -62,13 +67,15 @@
     [data-theme="light"] .service-dropdown button:hover, [data-theme="light"] .sidebar-dropdown button:hover { background-color: #d4d4d8 !important; color: #18181b !important; }
     [data-theme="light"] .modal-content { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.6) !important; }
     [data-theme="light"] #modal-title { color: #18181b !important; }
-    [data-theme="light"] #modal-desc { color: #71717a !important; }
-    [data-theme="light"] #preset-section .text-zinc-500 { color: #71717a !important; }
     [data-theme="light"] .preset-card { background-color: rgba(228,228,231,0.5) !important; border-color: rgba(212,212,216,0.5) !important; color: #52525b !important; }
     [data-theme="light"] .preset-card:hover { background-color: rgba(212,212,216,0.6) !important; color: #18181b !important; }
     [data-theme="light"] .modal-content .border-zinc-600 { border-color: rgba(212,212,216,0.6) !important; }
     [data-theme="light"] .modal-content .text-zinc-300 { color: #52525b !important; }
-    [data-theme="light"] .modal-content input { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #18181b !important; }
+    [data-theme="light"] .modal-content input, [data-theme="light"] #preset-search { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #18181b !important; }
+    [data-theme="light"] #modal-tabs { background-color: rgba(228,228,231,0.5) !important; }
+    [data-theme="light"] .modal-tab { color: #52525b !important; }
+    [data-theme="light"] .modal-tab[data-active="true"] { background-color: rgba(212,212,216,0.8) !important; color: #18181b !important; }
+    [data-theme="light"] .preset-cat-header { background-color: #FFFFFF !important; color: #71717a !important; }
     [data-theme="light"] .modal-content input::placeholder { color: #a1a1aa !important; }
     [data-theme="light"] #modal-cancel { background-color: rgba(228,228,231,0.6) !important; border-color: rgba(212,212,216,0.8) !important; color: #52525b !important; }
     [data-theme="light"] #modal-cancel:hover { background-color: rgba(212,212,216,0.7) !important; }
@@ -97,7 +104,16 @@
     [data-theme="light"] #modal-coffee #coffee-pix-key { background-color: rgba(212,212,216,0.6) !important; color: #18181b !important; }
     [data-theme="light"] #modal-coffee #coffee-copy-pix { background-color: rgba(212,212,216,0.6) !important; color: #52525b !important; }
     [data-theme="light"] #modal-coffee #coffee-copy-pix:hover { background-color: rgba(212,212,216,0.8) !important; }
-    [data-theme="light"] #toast { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.8) !important; color: #27272a !important; }
+    [data-theme="light"] #toast-card { background-color: #FFFFFF !important; color: #27272a !important; }
+    [data-theme="light"] #update-available-banner { color: #0284c7 !important; background-color: rgba(14,165,233,0.15) !important; }
+    [data-theme="light"] #update-available-banner:hover { background-color: rgba(14,165,233,0.25) !important; }
+    [data-theme="light"] #modal-update .relative { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-update h3 { color: #18181b !important; }
+    [data-theme="light"] #modal-update p, [data-theme="light"] #modal-update .text-zinc-400 { color: #71717a !important; }
+    [data-theme="light"] #modal-menu .relative { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.6) !important; }
+    [data-theme="light"] #modal-menu h3 { color: #18181b !important; }
+    [data-theme="light"] .menu-option-card { color: #52525b !important; border-color: rgba(212,212,216,0.5) !important; }
+    [data-theme="light"] .menu-option-card:hover { background-color: rgba(212,212,216,0.4) !important; color: #18181b !important; }
   </style>
 </head>
 <body class="text-zinc-200 h-screen flex flex-col font-sans antialiased" data-theme="dark" style="background-color:#212124">
@@ -106,6 +122,9 @@
       <div id="sidebar-logo-wrap" class="flex justify-center items-center py-3 px-2 border-b border-zinc-600/30">
         <img id="sidebar-logo" src="assets/logo-fundo-escuro.png" alt="Tim Workspaces" class="h-12 w-auto object-contain" onerror="this.style.display='none'">
         <img id="sidebar-icon" src="assets/icone-fundo-escuro.png" alt="" class="hidden w-10 h-10 object-contain flex-shrink-0" onerror="this.style.display='none'">
+      </div>
+      <div id="update-available-banner" class="hidden px-2 py-1.5 text-center text-xs text-sky-400 bg-sky-500/10 border-b border-zinc-600/30 cursor-pointer hover:bg-sky-500/20 transition-colors" title="Clique para ver detalhes">
+        Atualização disponível
       </div>
       <div class="flex items-center justify-between px-1 py-1">
         <button type="button" id="btn-collapse" class="p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors shrink-0" title="Recolher barra">
@@ -121,27 +140,9 @@
           <button type="button" id="btn-sidebar-menu" class="sidebar-menu-btn p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" title="Mais opções">
             <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="6" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="18" r="1.5"/></svg>
           </button>
-          <div id="sidebar-menu-dropdown" class="sidebar-dropdown hidden absolute right-0 top-full mt-1 py-1 bg-zinc-700 border border-zinc-600 rounded-lg shadow-xl z-50 min-w-[160px]">
-            <button type="button" id="menu-export" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-              Exportar serviços
-            </button>
-            <button type="button" id="menu-import" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l4 4m0 0l4-4m-4 4V4"/></svg>
-              Importar serviços
-            </button>
-            <button type="button" id="menu-star" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
-              Dar estrela no GitHub
-            </button>
-            <button type="button" id="menu-coffee" class="w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2">
-              <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
-              Me pague um café
-            </button>
-          </div>
         </div>
       </div>
-      <input type="file" id="input-import-file" accept=".json,application/json" class="hidden">
+      <input type="file" id="input-icon-file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
       <div id="sidebar-search-wrap" class="px-2 py-1.5 sidebar-search-wrap border-b border-zinc-600/30">
         <input type="text" id="sidebar-search" placeholder="Buscar serviços…" autocomplete="off"
           class="w-full px-3 py-2 bg-zinc-700/40 border border-zinc-600/50 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60">
@@ -155,34 +156,31 @@
     <main id="content-area" class="flex-1 flex flex-col min-w-0 overflow-hidden" style="background-color:#212124"></main>
   </div>
 
-  <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title" aria-describedby="modal-desc">
+  <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
     <div id="modal-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm transition-opacity"></div>
-    <div class="modal-content relative w-full max-w-lg border border-zinc-600/50 rounded-2xl shadow-2xl overflow-hidden" style="background-color:rgba(33,33,36,0.98)">
-      <div class="px-6 pt-6 pb-4">
-        <div class="flex items-center justify-between mb-1">
+    <div class="modal-content relative w-full max-w-2xl max-h-[85vh] border border-zinc-600/50 rounded-2xl shadow-2xl overflow-hidden flex flex-col transition-all duration-150" style="background-color:rgba(33,33,36,0.98)">
+      <div class="px-6 pt-6 pb-3 flex-shrink-0">
+        <div class="flex items-center justify-between mb-4">
           <h2 id="modal-title" class="text-xl font-semibold text-zinc-50 tracking-tight">Adicionar serviço</h2>
           <button type="button" id="modal-close" class="p-2 -mr-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
           </button>
         </div>
-        <p id="modal-desc" class="text-sm text-zinc-400 mb-5">Escolha um serviço pronto ou adicione uma URL personalizada.</p>
-
-        <div id="preset-section" class="mb-5">
-          <p class="text-xs font-medium text-zinc-500 uppercase tracking-wider mb-3">Atalhos</p>
-          <div id="preset-services" class="grid grid-cols-4 sm:grid-cols-4 gap-2"></div>
+        <div id="modal-tabs" class="flex gap-1 p-1 bg-zinc-700/40 rounded-xl">
+          <button type="button" id="tab-presets" class="modal-tab flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors duration-150 data-[active=true]:bg-zinc-600/60 data-[active=true]:text-zinc-100" data-tab="presets" data-active="true">Serviços prontos</button>
+          <button type="button" id="tab-custom" class="modal-tab flex-1 px-4 py-2 rounded-lg text-sm font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-600/50 transition-colors duration-150 data-[active=true]:bg-zinc-600/60 data-[active=true]:text-zinc-100" data-tab="custom" data-active="false">URL personalizada</button>
         </div>
+      </div>
 
-        <div class="relative">
-          <div class="absolute inset-0 flex items-center" aria-hidden="true">
-            <div class="w-full border-t border-zinc-600/50"></div>
-          </div>
-          <div class="relative flex justify-center text-sm">
-            <span class="px-3 text-zinc-500" style="background-color:rgba(33,33,36,0.98)">ou manualmente</span>
-          </div>
-        </div>
+      <div id="tab-presets-content" class="flex-1 min-h-0 flex flex-col px-6 pb-6" data-tab-content="presets">
+        <input type="text" id="preset-search" placeholder="Buscar serviços…" autocomplete="off"
+          class="w-full px-4 py-2.5 mb-4 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 text-sm">
+        <div id="preset-categories" class="flex-1 min-h-0 overflow-y-auto space-y-6"></div>
+      </div>
 
-        <form id="modal-form" class="mt-5">
-          <div class="space-y-4">
+      <div id="tab-custom-content" class="hidden flex-1 min-h-0 flex flex-col overflow-y-auto" data-tab-content="custom">
+        <form id="modal-form" class="px-6 pb-6 flex flex-col min-h-0 flex-1">
+          <div class="space-y-4 pt-2">
             <div>
               <label for="input-name" class="block text-sm font-medium text-zinc-300 mb-2">Nome da aba</label>
               <input type="text" id="input-name" placeholder="Ex: WhatsApp pessoal" required autocomplete="off"
@@ -194,12 +192,21 @@
                 class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 transition-shadow text-sm font-mono">
               <p id="url-error" class="mt-1.5 text-xs text-red-400 hidden"></p>
             </div>
-            <label class="flex items-center gap-2 cursor-pointer">
-              <input type="checkbox" id="input-use-as-home" class="rounded border-zinc-600 bg-zinc-700/40 text-sky-500 focus:ring-sky-500/40">
-              <span class="text-sm text-zinc-300">Usar como página inicial</span>
-            </label>
+            <div>
+              <label class="block text-sm font-medium text-zinc-300 mb-2">Ícone</label>
+              <div class="flex items-center gap-3">
+                <div id="modal-icon-preview" class="w-12 h-12 rounded-lg bg-zinc-600/50 flex items-center justify-center overflow-hidden flex-shrink-0">
+                  <img id="modal-icon-img" src="" alt="" class="w-10 h-10 object-contain hidden">
+                  <div id="modal-icon-placeholder" class="w-8 h-8 rounded bg-zinc-500/50"></div>
+                </div>
+                <div class="flex gap-2">
+                  <button type="button" id="btn-pick-icon" class="px-3 py-2 text-sm text-zinc-300 hover:text-zinc-100 bg-zinc-700/50 hover:bg-zinc-600/50 rounded-lg transition-colors">Escolher ícone</button>
+                  <button type="button" id="btn-clear-icon" class="px-3 py-2 text-sm text-zinc-500 hover:text-zinc-300 rounded-lg transition-colors hidden">Usar padrão</button>
+                </div>
+              </div>
+            </div>
           </div>
-          <div class="flex gap-3 mt-6">
+          <div class="flex gap-3 mt-6 flex-shrink-0">
             <button type="button" id="modal-cancel" class="flex-1 px-4 py-3 bg-zinc-700/40 hover:bg-zinc-600/50 text-zinc-300 rounded-xl text-sm font-medium transition-colors border border-zinc-600/50">Cancelar</button>
             <button type="submit" id="modal-add-btn" class="flex-1 px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-sky-500/20">Adicionar</button>
           </div>
@@ -208,28 +215,42 @@
     </div>
   </div>
 
-  <div id="toast" role="status" aria-live="polite" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] px-4 py-3 border border-zinc-600/50 rounded-xl shadow-xl text-zinc-100 text-sm font-medium" style="background-color:#212124">
-    Serviço adicionado
+  <div id="toast-overlay" class="fixed inset-0 z-[60] flex items-center justify-center p-6 bg-black/60 backdrop-blur-sm" role="status" aria-live="polite">
+    <div id="toast-card" class="px-8 py-5 rounded-2xl shadow-2xl text-center text-lg font-medium max-w-md" style="background-color:#212124;color:#e4e4e7">
+      <span id="toast-text"></span>
+    </div>
   </div>
+  <div id="theme-transition-overlay" class="fixed inset-0 z-[70]" aria-hidden="true"></div>
 
-  <div id="modal-import" class="fixed inset-0 z-50 flex items-center justify-center p-4" style="display: none;">
-    <div class="absolute inset-0 bg-black/50 backdrop-blur-sm" id="modal-import-overlay"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Importar serviços</h3>
-      <p class="text-sm text-zinc-400 mb-4">Como deseja importar os <strong id="import-count" class="text-zinc-200">0</strong> serviços?</p>
-      <div class="flex gap-2 justify-end">
-        <button type="button" id="modal-import-cancel" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
-        <button type="button" id="modal-import-merge" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Mesclar</button>
-        <button type="button" id="modal-import-replace" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors">Substituir</button>
+  <div id="modal-menu" class="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div id="modal-menu-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
+      <h3 class="text-lg font-semibold text-zinc-100 mb-4">O que mais?</h3>
+      <div class="flex flex-col gap-2">
+        <button type="button" id="menu-option-star" class="menu-option-card w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100 rounded-xl border border-zinc-600/30 flex items-center gap-3 transition-colors">
+          <svg class="w-5 h-5 flex-shrink-0 text-amber-400" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
+          <span>Dar uma estrelinha no GitHub</span>
+        </button>
+        <button type="button" id="menu-option-updates" class="menu-option-card w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100 rounded-xl border border-zinc-600/30 flex items-center gap-3 transition-colors">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          <span>Ver se melhoraram essa bagaça</span>
+        </button>
+        <button type="button" id="menu-option-coffee" class="menu-option-card w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100 rounded-xl border border-zinc-600/30 flex items-center gap-3 transition-colors">
+          <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
+          <span>Me paga um cafezinho?</span>
+        </button>
       </div>
+      <button type="button" id="modal-menu-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
     </div>
   </div>
 
   <div id="modal-star" class="fixed inset-0 z-50 flex items-center justify-center">
     <div id="modal-star-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
     <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Gostou do Tim Workspaces?</h3>
-      <p class="text-sm text-zinc-400 mb-4">Se o Tim Workspaces está sendo útil, considere dar uma estrela no GitHub. Suporte gratuito!</p>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Curtiu?</h3>
+      <p class="text-sm text-zinc-400 mb-4">Se tá te ajudando, manda uma estrelinha pro projeto no GitHub. É de graça e motiva pra caramba!</p>
       <div class="flex gap-2 justify-end">
         <button type="button" id="modal-star-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
         <button type="button" id="modal-star-btn" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
@@ -243,8 +264,8 @@
   <div id="modal-coffee" class="fixed inset-0 z-50 flex items-center justify-center p-4">
     <div id="modal-coffee-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
     <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Me pague um café</h3>
-      <p class="text-sm text-zinc-400 mb-4">Apoie o desenvolvimento com um PIX.</p>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Me paga um cafezinho?</h3>
+      <p class="text-sm text-zinc-400 mb-4">Se curtir o app, um PIX ajuda demais a manter isso rodando!</p>
       <div class="flex justify-center mb-4">
         <img src="assets/qr-code-pix.png" alt="QR Code PIX" class="w-40 h-40 object-contain rounded-lg border border-zinc-600/50">
       </div>
@@ -252,6 +273,24 @@
       <p id="coffee-pix-key" class="text-sm font-mono text-zinc-300 bg-zinc-700/50 rounded-lg px-3 py-2 mb-3 break-all">a7f1a823-d3b5-4ab3-b63f-03ffed9459f7</p>
       <button type="button" id="coffee-copy-pix" class="w-full px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Copiar chave</button>
       <button type="button" id="modal-coffee-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+  </div>
+
+  <div id="modal-update" class="fixed inset-0 z-50 flex items-center justify-center">
+    <div id="modal-update-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Tem novidade!</h3>
+      <p id="modal-update-desc" class="text-sm text-zinc-400 mb-4">Tem a versão <strong id="modal-update-version" class="text-zinc-200">–</strong> pronta! Tu tá na <strong id="modal-update-current" class="text-zinc-200">–</strong>.</p>
+      <div class="flex gap-2 justify-end">
+        <button type="button" id="modal-update-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
+        <button type="button" id="modal-update-download" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 8m4-4v12"/></svg>
+          Baixar
+        </button>
+      </div>
+      <button type="button" id="modal-update-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>

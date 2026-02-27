@@ -9,14 +9,48 @@ const DEFAULT_URL_KEY = 'timworkspaces-default-url';
 const DEFAULT_URL_FALLBACK = 'https://timdevops.com.br';
 
 const GITHUB_REPO_URL = 'https://github.com/renatoruis/timworkspaces';
+const LAST_CHECK_KEY = 'timworkspaces-last-update-check';
+const LAST_SEEN_UPDATE_KEY = 'timworkspaces-last-seen-update';
+const CHECK_THROTTLE_MS = 24 * 60 * 60 * 1000;
+const FIRST_VISIT_KEY = 'timworkspaces-first-visit-done';
+
+const THEME_TOASTS_LIGHT = [
+  'Acendeu a luz, meus olhos vão queimar agora!',
+  'Quem acendeu o sol?',
+];
+const THEME_TOASTS_DARK = [
+  'Gosta do escurinho né? É um dev raiz',
+  'Mode hacker ativado',
+  'Agora sim, menos cansaço na vista'
+];
+const MUTE_TOASTS_SILENCE = ['Shh... ninguém te perturba mais', 'Silêncio total, modo foco ligado'];
+const MUTE_TOASTS_ACTIVE = ['As notificações voltaram, cuidado!', 'Voltou a bagunça'];
+const ADD_SERVICE_TOASTS = ['Boa! Mais um na coleção', 'Adicionado com sucesso, chefia', 'Pronto, tá na lista'];
+const SIDEBAR_COLLAPSE_TOASTS = ['Minimalista mode on', 'Mais espaço pra trabalhar'];
+const SIDEBAR_EXPAND_TOASTS = ['Voltou tudo'];
+const UPDATE_OK_TOASTS = ['Tá tudo em dia!', 'Nada de novo por aqui', 'Continua na última'];
+function formatUpdateAvailableToast(version) {
+  const msgs = ['Nova versão %s disponível! Atualiza aí', 'Tem a %s pronta! Vai lá pegar', 'Saiu a %s, corre lá'];
+  return pick(msgs).replace('%s', version);
+}
+const UPDATE_ERROR_TOASTS = ['Deu ruim ao verificar', 'Internet esqueceu de funcionar'];
+const WELCOME_TOASTS = [
+  'E aí! Bem-vindo ao Tim Workspaces. Espero que ajude nas suas multitarefas caóticas',
+  'Fala! Bem-vindo. Aqui tu junta tudo num lugar só'
+];
+const TAB_SWITCH_TOASTS = ['Quantas abas tu tem abertas no Chrome?', 'Trabalhando em várias frentes, hein'];
+const TAB_SWITCH_INTERVAL = 5;
+
 let services = [];
+let tabSwitchCount = 0;
 let activeServiceId = null;
 let activeWebview = null;
 let sidebarCollapsed = false;
 let mutedServices = new Set();
 let muteAll = false;
 let searchFilter = '';
-let pendingImportData = null;
+const webviewCache = new Map(); // serviceId -> { container, webview, loadingBar }
+let updateInfo = null; // { version, url } quando há nova versão
 
 const MUTE_SCRIPT = `
 (function(){
@@ -31,16 +65,42 @@ const MUTE_SCRIPT = `
 })();
 `;
 
-const PRESET_SERVICES = [
-  { name: 'Gmail', url: 'https://mail.google.com', icon: 'https://cdn.simpleicons.org/gmail' },
-  { name: 'WhatsApp', url: 'https://web.whatsapp.com', icon: 'https://web.whatsapp.com/favicon.ico' },
-  { name: 'Microsoft Teams', url: 'https://teams.microsoft.com' },
-  { name: 'Google Chat', url: 'https://chat.google.com', icon: 'https://cdn.simpleicons.org/googlechat' },
-  { name: 'Slack', url: 'https://app.slack.com' },
-  { name: 'Telegram', url: 'https://web.telegram.org' },
-  { name: 'Discord', url: 'https://discord.com/app' },
-  { name: 'Outlook', url: 'https://outlook.live.com' },
-];
+const LIGHT_THEME_CSS = `
+html,:root{color-scheme:light!important;background-color:#fff!important;}
+body{background-color:#fff!important;color:#202124!important;}
+body[class*="dark"],body[data-theme="dark"],[data-theme="dark"],[class*="dark-theme"],[class*="DarkTheme"]{background-color:#fff!important;color:#202124!important;}
+[style*="212124"],[style*="1f1f1f"],[style*="303134"],[style*="202124"]{background-color:#fff!important;color:#202124!important;}
+`;
+
+const LIGHT_THEME_SCRIPT = '(function(){try{var c=' + JSON.stringify(LIGHT_THEME_CSS.trim()) + ';document.documentElement.style.colorScheme="light";document.documentElement.setAttribute("data-theme","light");var m=document.querySelector("meta[name=color-scheme]");if(m)m.content="light";else{var nm=document.createElement("meta");nm.name="color-scheme";nm.content="light";document.head.appendChild(nm);}var s=document.createElement("style");s.id="tw-forcelight";s.textContent=c;if(!document.getElementById("tw-forcelight"))document.head.appendChild(s);}catch(e){}})();';
+
+let presetCategories = [];
+
+async function loadPresets() {
+  try {
+    const res = await fetch('./presets.json');
+    if (!res.ok) return;
+    const data = await res.json();
+    presetCategories = data?.categories ?? [];
+  } catch {
+    presetCategories = [];
+  }
+}
+
+function isServiceUrlAdded(url) {
+  if (!url) return false;
+  try {
+    const u = new URL(url);
+    const norm = u.origin + u.pathname.replace(/\/$/, '') || u.origin;
+    return services.some(s => {
+      try {
+        const su = new URL(s.url);
+        const snorm = su.origin + su.pathname.replace(/\/$/, '') || su.origin;
+        return norm === snorm;
+      } catch { return false; }
+    });
+  } catch { return false; }
+}
 
 let serviceListEl;
 let contentAreaEl;
@@ -62,14 +122,6 @@ function getDefaultUrl() {
   } catch {
     return DEFAULT_URL_FALLBACK;
   }
-}
-
-function setDefaultUrl(url) {
-  try {
-    if (url && url.startsWith('http')) {
-      localStorage.setItem(DEFAULT_URL_KEY, url);
-    }
-  } catch {}
 }
 
 function loadTheme() {
@@ -109,10 +161,14 @@ function updateThemeIcon(theme) {
 function toggleTheme() {
   const current = document.body.dataset.theme || 'dark';
   const next = current === 'dark' ? 'light' : 'dark';
-  document.body.dataset.theme = next;
-  localStorage.setItem(THEME_KEY, next);
-  updateThemeIcon(next);
-  updateSidebarLogo(next);
+  const toLight = next === 'light';
+  runThemeTransition(toLight, () => {
+    document.body.dataset.theme = next;
+    localStorage.setItem(THEME_KEY, next);
+    updateThemeIcon(next);
+    updateSidebarLogo(next);
+    showBigToast(pick(toLight ? THEME_TOASTS_LIGHT : THEME_TOASTS_DARK), 2800);
+  });
 }
 
 function getFaviconUrl(url) {
@@ -125,12 +181,63 @@ function getFaviconUrl(url) {
   }
 }
 
+function getServiceIconUrl(service) {
+  if (service.customIcon && typeof service.customIcon === 'string' && service.customIcon.startsWith('data:')) {
+    return service.customIcon;
+  }
+  return service.iconUrl || getFaviconUrl(service.url);
+}
+
+function resizeImageToDataUrl(file, maxSize = 64) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+        canvas.width = Math.round(img.width * scale);
+        canvas.height = Math.round(img.height * scale);
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        resolve(canvas.toDataURL('image/png'));
+      } finally {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Erro ao carregar imagem'));
+    };
+    img.src = url;
+  });
+}
+
+function setCustomIcon(serviceId, dataUrl) {
+  const idx = services.findIndex(s => s.id === serviceId);
+  if (idx === -1) return;
+  services[idx].customIcon = dataUrl;
+  saveServices();
+  render();
+}
+
+function clearCustomIcon(serviceId) {
+  const idx = services.findIndex(s => s.id === serviceId);
+  if (idx === -1) return;
+  delete services[idx].customIcon;
+  if (services[idx].url) services[idx].iconUrl = getFaviconUrl(services[idx].url);
+  saveServices();
+  render();
+}
+
+let pendingModalCustomIcon = null;
+
 function loadServices() {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
     services = stored ? JSON.parse(stored) : [];
     services.forEach(s => {
-      if (s.url) s.iconUrl = getFaviconUrl(s.url);
+      if (s.url && !s.customIcon) s.iconUrl = getFaviconUrl(s.url);
     });
     saveServices();
   } catch {
@@ -169,6 +276,7 @@ function toggleMuteAll() {
   muteAll = !muteAll;
   localStorage.setItem(MUTE_ALL_KEY, String(muteAll));
   updateMuteAllButton();
+  showToast(pick(muteAll ? MUTE_TOASTS_SILENCE : MUTE_TOASTS_ACTIVE));
 }
 
 function updateMuteAllButton() {
@@ -215,49 +323,149 @@ function saveServices() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(services));
 }
 
-function showToast(msg) {
-  const toast = document.getElementById('toast');
-  if (!toast) return;
-  if (typeof msg === 'string') toast.textContent = msg;
-  toast.classList.add('show');
-  clearTimeout(showToast._tid);
-  showToast._tid = setTimeout(() => {
-    toast.classList.remove('show');
-    toast.textContent = 'Serviço adicionado';
-  }, 2000);
+function removeFromWebviewCache(serviceId) {
+  const cached = webviewCache.get(serviceId);
+  if (!cached) return;
+  cached.container?.remove?.();
+  webviewCache.delete(serviceId);
 }
 
-function addService(name, url) {
+function pick(arr) {
+  return arr[Math.floor(Math.random() * arr.length)];
+}
+
+function showToast(msg, duration = 2200) {
+  const overlay = document.getElementById('toast-overlay');
+  const text = document.getElementById('toast-text');
+  if (!overlay || !text) return;
+  text.textContent = typeof msg === 'string' ? msg : 'Serviço adicionado';
+  overlay.classList.add('show');
+  clearTimeout(showToast._tid);
+  showToast._tid = setTimeout(() => {
+    overlay.classList.remove('show');
+    text.textContent = '';
+  }, duration);
+}
+
+function showBigToast(msg, duration = 2800) {
+  showToast(msg, duration);
+}
+
+function runThemeTransition(toLight, onDone) {
+  const overlay = document.getElementById('theme-transition-overlay');
+  if (!overlay) { onDone?.(); return; }
+  overlay.style.backgroundColor = toLight ? '#ffffff' : '#000000';
+  overlay.classList.add('active');
+  overlay.style.pointerEvents = 'auto';
+  setTimeout(() => {
+    onDone?.();
+    setTimeout(() => {
+      overlay.classList.remove('active');
+      overlay.style.pointerEvents = 'none';
+    }, 350);
+  }, 350);
+}
+
+function showUpdateBanner(show) {
+  const banner = document.getElementById('update-available-banner');
+  if (!banner) return;
+  banner.classList.toggle('hidden', !show);
+}
+
+function openUpdateModal() {
+  if (!updateInfo) return;
+  const versionEl = document.getElementById('modal-update-version');
+  const currentEl = document.getElementById('modal-update-current');
+  if (versionEl) versionEl.textContent = updateInfo.version;
+  if (currentEl && typeof window.electronAPI?.getAppVersion === 'function') {
+    window.electronAPI.getAppVersion().then(v => { currentEl.textContent = v; });
+  }
+  document.getElementById('modal-update')?.classList.add('modal-open');
+}
+
+function closeUpdateModal() {
+  if (updateInfo) {
+    try { localStorage.setItem(LAST_SEEN_UPDATE_KEY, updateInfo.version); } catch {}
+  }
+  document.getElementById('modal-update')?.classList.remove('modal-open');
+}
+
+async function checkForUpdates(showModalIfNew = false) {
+  if (typeof window.electronAPI?.checkUpdates !== 'function') return;
+  try {
+    const result = await window.electronAPI.checkUpdates();
+    try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch {}
+    if (result.available && result.version && result.url) {
+      updateInfo = { version: result.version, url: result.url };
+      showToast(formatUpdateAvailableToast(result.version));
+      showUpdateBanner(true);
+      const lastSeen = localStorage.getItem(LAST_SEEN_UPDATE_KEY);
+      if (showModalIfNew || lastSeen !== result.version) {
+        openUpdateModal();
+      }
+    } else {
+      updateInfo = null;
+      showUpdateBanner(false);
+      if (showModalIfNew) showToast(pick(UPDATE_OK_TOASTS));
+    }
+  } catch {
+    if (showModalIfNew) showToast(pick(UPDATE_ERROR_TOASTS));
+  }
+}
+
+function addService(name, url, customIcon = null) {
   const service = {
     id: crypto.randomUUID(),
     name: String(name).trim() || new URL(url).hostname,
     url: String(url).trim(),
-    iconUrl: getFaviconUrl(url)
+    iconUrl: getFaviconUrl(url),
+    ...(customIcon ? { customIcon } : {})
   };
   services.push(service);
   saveServices();
   activeServiceId = service.id;
   render();
   closeModal();
-  showToast();
+  showToast(pick(ADD_SERVICE_TOASTS));
 }
 
-function updateService(id, name, url) {
+function updateService(id, name, url, customIcon = undefined) {
   const idx = services.findIndex(s => s.id === id);
   if (idx === -1) return;
-  services[idx] = {
+  const newUrl = String(url).trim();
+  const urlChanged = services[idx].url !== newUrl;
+  if (urlChanged) removeFromWebviewCache(id);
+  const nextCustomIcon = customIcon !== undefined
+    ? (customIcon && typeof customIcon === 'string' && customIcon.startsWith('data:') ? customIcon : null)
+    : services[idx].customIcon;
+  const hadCustomIcon = !!nextCustomIcon;
+  const updated = {
     ...services[idx],
     name: String(name).trim() || new URL(url).hostname,
-    url: String(url).trim(),
-    iconUrl: getFaviconUrl(url)
+    url: newUrl,
+    iconUrl: hadCustomIcon ? services[idx].iconUrl : getFaviconUrl(url)
   };
+  if (nextCustomIcon) updated.customIcon = nextCustomIcon;
+  else delete updated.customIcon;
+  services[idx] = updated;
   saveServices();
   render();
   closeModal();
 }
 
 function duplicateService(service) {
-  addService(service.name + ' (cópia)', service.url);
+  const copy = {
+    id: crypto.randomUUID(),
+    name: service.name + ' (cópia)',
+    url: service.url,
+    iconUrl: service.iconUrl || getFaviconUrl(service.url),
+    customIcon: service.customIcon || undefined
+  };
+  services.push(copy);
+  saveServices();
+  activeServiceId = copy.id;
+  render();
+  showToast(pick(ADD_SERVICE_TOASTS));
 }
 
 let pendingDeleteId = null;
@@ -283,6 +491,7 @@ function confirmRemoveService() {
   const idx = services.findIndex(s => s.id === id);
   if (idx === -1) { closeDeleteModal(); return; }
   services.splice(idx, 1);
+  removeFromWebviewCache(id);
   saveServices();
   if (activeServiceId === id) {
     activeServiceId = services[0]?.id ?? null;
@@ -300,8 +509,37 @@ function removeService(id, e) {
 
 function closeModal() {
   editingServiceId = null;
+  pendingModalCustomIcon = null;
+  const presetSearch = document.getElementById('preset-search');
+  if (presetSearch) presetSearch.value = '';
   if (modalEl) modalEl.classList.remove('modal-open');
   updateModalForMode();
+}
+
+function updateModalIconPreview() {
+  const img = document.getElementById('modal-icon-img');
+  const placeholder = document.getElementById('modal-icon-placeholder');
+  const btnClear = document.getElementById('btn-clear-icon');
+  if (!img || !placeholder) return;
+  const url = inputUrlEl?.value?.trim();
+  let iconSrc = '';
+  if (pendingModalCustomIcon) {
+    iconSrc = pendingModalCustomIcon;
+    if (btnClear) btnClear.classList.remove('hidden');
+  } else {
+    iconSrc = url ? getFaviconUrl(url) : '';
+    if (btnClear) btnClear.classList.add('hidden');
+  }
+  if (iconSrc) {
+    img.src = iconSrc;
+    img.classList.remove('hidden');
+    img.onerror = () => { img.src = ''; img.classList.add('hidden'); placeholder.classList.remove('hidden'); };
+    placeholder.classList.add('hidden');
+  } else {
+    img.src = '';
+    img.classList.add('hidden');
+    placeholder.classList.remove('hidden');
+  }
 }
 
 const FOCUSABLE_SELECTOR = 'input:not([disabled]):not([tabindex="-1"]), button:not([disabled]):not([tabindex="-1"]), [tabindex]:not([tabindex="-1"])';
@@ -332,26 +570,47 @@ function handleModalKeydown(e) {
 
 function updateModalForMode() {
   const titleEl = document.getElementById('modal-title');
-  const descEl = document.getElementById('modal-desc');
-  const presetSection = document.getElementById('preset-section');
+  const tabsEl = document.getElementById('modal-tabs');
   const addBtn = document.getElementById('modal-add-btn');
+  const tabPresetsContent = document.getElementById('tab-presets-content');
+  const tabCustomContent = document.getElementById('tab-custom-content');
   if (!titleEl || !addBtn) return;
   if (editingServiceId) {
     titleEl.textContent = 'Editar serviço';
-    if (descEl) descEl.textContent = 'Altere o nome ou a URL do serviço.';
-    if (presetSection) presetSection.classList.add('hidden');
+    if (tabsEl) tabsEl.classList.add('hidden');
+    if (tabPresetsContent) tabPresetsContent.classList.add('hidden');
+    if (tabCustomContent) tabCustomContent.classList.remove('hidden');
     addBtn.textContent = 'Salvar';
   } else {
     titleEl.textContent = 'Adicionar serviço';
-    if (descEl) descEl.textContent = 'Escolha um serviço pronto ou adicione uma URL personalizada.';
-    if (presetSection) presetSection.classList.remove('hidden');
+    if (tabsEl) tabsEl.classList.remove('hidden');
+    switchModalTab('presets');
     addBtn.textContent = 'Adicionar';
+  }
+}
+
+function switchModalTab(tabId) {
+  const tabPresets = document.getElementById('tab-presets');
+  const tabCustom = document.getElementById('tab-custom');
+  const tabPresetsContent = document.getElementById('tab-presets-content');
+  const tabCustomContent = document.getElementById('tab-custom-content');
+  const isPresets = tabId === 'presets';
+  if (tabPresets) { tabPresets.dataset.active = isPresets ? 'true' : 'false'; }
+  if (tabCustom) { tabCustom.dataset.active = !isPresets ? 'true' : 'false'; }
+  if (tabPresetsContent) {
+    tabPresetsContent.classList.toggle('hidden', !isPresets);
+    tabPresetsContent.classList.toggle('flex', isPresets);
+  }
+  if (tabCustomContent) {
+    tabCustomContent.classList.toggle('hidden', isPresets);
+    tabCustomContent.classList.toggle('flex', !isPresets);
   }
 }
 
 function openModal(options = {}) {
   const { clear = true, editService = null } = options;
   editingServiceId = editService?.id ?? null;
+  pendingModalCustomIcon = editService?.customIcon ?? null;
   if (editService) {
     if (inputNameEl) inputNameEl.value = editService.name;
     if (inputUrlEl) inputUrlEl.value = editService.url;
@@ -359,12 +618,18 @@ function openModal(options = {}) {
     if (inputNameEl) inputNameEl.value = '';
     if (inputUrlEl) inputUrlEl.value = '';
   }
-  const homeCheck = document.getElementById('input-use-as-home');
-  if (homeCheck) homeCheck.checked = false;
   showUrlError('');
   updateModalForMode();
+  updateModalIconPreview();
+  if (!editingServiceId) {
+    const searchEl = document.getElementById('preset-search');
+    renderPresetCategories(searchEl?.value || '');
+  }
   if (modalEl) modalEl.classList.add('modal-open');
-  setTimeout(() => (inputNameEl || inputUrlEl)?.focus(), 50);
+  setTimeout(() => {
+    if (editingServiceId) (inputNameEl || inputUrlEl)?.focus();
+    else document.getElementById('preset-search')?.focus();
+  }, 50);
 }
 
 function showUrlError(msg) {
@@ -395,15 +660,13 @@ function handleAddSubmit(e) {
     return;
   }
 
+  const customIcon = pendingModalCustomIcon || null;
   if (editingServiceId) {
-    updateService(editingServiceId, name, url);
-    const useAsHome = document.getElementById('input-use-as-home')?.checked;
-    if (useAsHome) setDefaultUrl(url);
+    updateService(editingServiceId, name, url, customIcon);
   } else {
-    addService(name, url);
-    const useAsHome = document.getElementById('input-use-as-home')?.checked;
-    if (useAsHome) setDefaultUrl(url);
+    addService(name, url, customIcon);
   }
+  pendingModalCustomIcon = null;
 }
 
 function renderSidebar() {
@@ -416,7 +679,7 @@ function renderSidebar() {
 
   serviceListEl.innerHTML = '';
   for (const service of filtered) {
-    const iconUrl = service.iconUrl || getFaviconUrl(service.url);
+    const iconUrl = getServiceIconUrl(service);
     const isActive = service.id === activeServiceId;
 
     const row = document.createElement('div');
@@ -459,6 +722,12 @@ function renderSidebar() {
     btn.className = 'service-btn flex-1 flex items-center gap-2 min-w-0 py-2 px-2 rounded-lg text-left transition-colors ' +
       (isActive ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200');
     btn.addEventListener('click', () => {
+      if (activeServiceId !== service.id) {
+        tabSwitchCount++;
+        if (tabSwitchCount % TAB_SWITCH_INTERVAL === 0) {
+          showToast(pick(TAB_SWITCH_TOASTS));
+        }
+      }
       activeServiceId = service.id;
       render();
     });
@@ -521,18 +790,15 @@ function renderSidebar() {
     editItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg> Editar';
     editItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); openModal({ clear: false, editService: service }); });
     dropdown.appendChild(editItem);
+    const iconItem = document.createElement('button');
+    iconItem.type = 'button';
+    iconItem.className = 'w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2';
     const duplicateItem = document.createElement('button');
     duplicateItem.type = 'button';
     duplicateItem.className = 'w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2';
     duplicateItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Duplicar';
     duplicateItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); duplicateService(service); });
     dropdown.appendChild(duplicateItem);
-    const setHomeItem = document.createElement('button');
-    setHomeItem.type = 'button';
-    setHomeItem.className = 'w-full px-3 py-2 text-left text-sm text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100 flex items-center gap-2';
-    setHomeItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/></svg> Definir como página inicial';
-    setHomeItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); setDefaultUrl(service.url); showToast('Página inicial definida'); });
-    dropdown.appendChild(setHomeItem);
     const removeItem = document.createElement('button');
     removeItem.type = 'button';
     removeItem.className = 'w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-zinc-600 hover:text-red-300 flex items-center gap-2';
@@ -554,8 +820,16 @@ function renderSidebar() {
 function renderContentArea() {
   if (!contentAreaEl) return;
 
-  contentAreaEl.innerHTML = '';
-  activeWebview = null;
+  const validIds = new Set(services.map(s => s.id));
+  [...webviewCache.keys()].forEach(id => {
+    if (!validIds.has(id)) removeFromWebviewCache(id);
+  });
+
+  const hasActiveService = services.length > 0;
+  const active = hasActiveService
+    ? (services.find(s => s.id === activeServiceId) || services[0])
+    : null;
+  if (active) activeServiceId = active.id;
 
   function injectMuteIfNeeded(wv, serviceId) {
     if (!isServiceMuted(serviceId)) return;
@@ -565,25 +839,116 @@ function renderContentArea() {
     }, { once: true });
   }
 
+  function injectLightTheme(wv) {
+    function doInject() {
+      wv.executeJavaScript(LIGHT_THEME_SCRIPT).catch(() => {});
+      try { wv.insertCSS(LIGHT_THEME_CSS); } catch (_) {}
+    }
+    wv.addEventListener('did-finish-load', function onLoad() {
+      doInject();
+      setTimeout(doInject, 500);
+      setTimeout(doInject, 1500);
+    });
+  }
+
   function createLoadingBar() {
     const wrap = document.createElement('div');
-    wrap.id = 'loading-bar-wrap';
     wrap.className = 'absolute top-0 left-0 right-0 h-0.5 overflow-hidden z-20 pointer-events-none hidden';
     wrap.innerHTML = '<div class="h-full w-1/3 bg-sky-500 loading-bar-progress rounded-r"></div>';
     return wrap;
   }
 
-  const hasActiveService = services.length > 0;
-  const active = hasActiveService
-    ? (services.find(s => s.id === activeServiceId) || services[0])
-    : null;
-  if (active) activeServiceId = active.id;
+  function isGoogleAuthUrl(u) {
+    if (!u || typeof u !== 'string') return false;
+    try {
+      const url = new URL(u);
+      return url.hostname === 'accounts.google.com' || url.hostname.endsWith('.accounts.google.com');
+    } catch {
+      return false;
+    }
+  }
 
-  const loadingBar = createLoadingBar();
-  contentAreaEl.appendChild(loadingBar);
+  function getOrCreatePane(service) {
+    const serviceId = service.id;
+    let cached = webviewCache.get(serviceId);
+    if (cached) return cached;
 
-  if (hasActiveService) {
-    const toolbar = document.createElement('div');
+    const currentUrl = service.url ?? getDefaultUrl();
+    const loadingBar = createLoadingBar();
+    const webview = document.createElement('webview');
+    const partitionId = (serviceId && serviceId !== 'default') ? String(serviceId).replace(/[^a-zA-Z0-9_-]/g, '') : 'default';
+    webview.partition = 'persist:timworkspaces-' + partitionId;
+    webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+    webview.className = 'w-full h-full border-0';
+    webview.allowpopups = 'allowpopups';
+    webview.webpreferences = 'nativeWindowOpen=yes';
+    injectMuteIfNeeded(webview, serviceId);
+    injectLightTheme(webview);
+    webview.src = currentUrl;
+
+    webview.addEventListener('will-navigate', async (e) => {
+      const targetUrl = e?.url;
+      if (!isGoogleAuthUrl(targetUrl) || typeof window.electronAPI?.openGoogleAuth !== 'function') return;
+      try {
+        if (typeof e.preventDefault === 'function') e.preventDefault();
+      } catch (_) {}
+      loadingBar.classList.remove('hidden');
+      try {
+        const finalUrl = await window.electronAPI.openGoogleAuth(targetUrl, webview.partition);
+        if (finalUrl) webview.src = finalUrl;
+        else webview.src = currentUrl;
+      } catch {
+        webview.src = currentUrl;
+      } finally {
+        loadingBar.classList.add('hidden');
+      }
+    });
+
+    let loadingTimeout = null;
+    function showLoadingBar() {
+      loadingBar.classList.remove('hidden');
+      if (!loadingTimeout) {
+        loadingTimeout = setTimeout(() => {
+          loadingBar.classList.add('hidden');
+          loadingTimeout = null;
+        }, 8000);
+      }
+    }
+    function hideLoadingBar() {
+      if (loadingTimeout) { clearTimeout(loadingTimeout); loadingTimeout = null; }
+      loadingBar.classList.add('hidden');
+    }
+    webview.addEventListener('did-start-loading', showLoadingBar);
+    webview.addEventListener('did-finish-load', hideLoadingBar);
+    webview.addEventListener('did-stop-loading', hideLoadingBar);
+    webview.addEventListener('did-fail-load', hideLoadingBar);
+
+    const container = document.createElement('div');
+    container.className = 'absolute inset-0 flex flex-col min-h-0';
+    container.dataset.serviceId = serviceId;
+    container.appendChild(loadingBar);
+    const webviewWrap = document.createElement('div');
+    webviewWrap.className = 'flex-1 min-h-0 relative';
+    webviewWrap.appendChild(webview);
+    container.appendChild(webviewWrap);
+
+    cached = { container, webview, loadingBar };
+    webviewCache.set(serviceId, cached);
+    return cached;
+  }
+
+  if (!hasActiveService) {
+    contentAreaEl.innerHTML = '';
+    activeWebview = null;
+    return;
+  }
+
+  let toolbar = contentAreaEl.querySelector('#content-toolbar');
+  let webviewPanes = contentAreaEl.querySelector('#content-panes');
+  if (!webviewPanes) {
+    contentAreaEl.innerHTML = '';
+    toolbar = document.createElement('div');
+    toolbar.id = 'content-toolbar';
     toolbar.className = 'flex items-center justify-end gap-0.5 px-2 py-1 bg-zinc-800/50 border-b border-zinc-600/30 flex-shrink-0';
     toolbar.innerHTML = `
       <button type="button" id="toolbar-refresh" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors" title="Recarregar">
@@ -596,86 +961,46 @@ function renderContentArea() {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 8V4m0 0h4M4 4l5 5m11-1V4m0 0h-4m4 0l-5 5M4 16v4m0 0h4m-4 0l5-5m11 5l-5-5m5 5v-4m0 4h-4"/></svg>
       </button>
     `;
+    webviewPanes = document.createElement('div');
+    webviewPanes.id = 'content-panes';
+    webviewPanes.className = 'flex-1 min-h-0 relative';
     contentAreaEl.appendChild(toolbar);
+    contentAreaEl.appendChild(webviewPanes);
   }
 
-  const webviewContainer = document.createElement('div');
-  webviewContainer.className = 'flex-1 min-h-0 relative';
-  const serviceId = active?.id ?? 'default';
-  const currentUrl = active?.url ?? getDefaultUrl();
-  const webview = document.createElement('webview');
-  const partitionId = (serviceId && serviceId !== 'default') ? serviceId.replace(/[^a-zA-Z0-9_-]/g, '') : 'default';
-  webview.partition = 'persist:timworkspaces-' + partitionId;
-  webview.useragent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
-  webview.className = 'w-full h-full border-0';
-  injectMuteIfNeeded(webview, serviceId);
-  webview.src = currentUrl;
-
-  function isGoogleAuthUrl(u) {
-    if (!u || typeof u !== 'string') return false;
-    try {
-      const url = new URL(u);
-      return url.hostname === 'accounts.google.com' || url.hostname.endsWith('.accounts.google.com');
-    } catch {
-      return false;
-    }
+  const pane = getOrCreatePane(active);
+  if (!webviewPanes.contains(pane.container)) {
+    webviewPanes.appendChild(pane.container);
   }
-
-  webview.addEventListener('will-navigate', async (e) => {
-    const targetUrl = e?.url;
-    if (!isGoogleAuthUrl(targetUrl) || typeof window.electronAPI?.openGoogleAuth !== 'function') return;
-    try {
-      if (typeof e.preventDefault === 'function') e.preventDefault();
-    } catch (_) {}
-    loadingBar.classList.remove('hidden');
-    try {
-      const finalUrl = await window.electronAPI.openGoogleAuth(targetUrl, webview.partition);
-      if (finalUrl && activeWebview === webview) {
-        webview.src = finalUrl;
-      } else if (!finalUrl && activeWebview === webview) {
-        webview.src = currentUrl;
-      }
-    } catch {
-      if (activeWebview === webview) webview.src = currentUrl;
-    } finally {
-      loadingBar.classList.add('hidden');
-    }
+  webviewCache.forEach((c, id) => {
+    const isActive = id === activeServiceId;
+    c.container.classList.toggle('hidden', !isActive);
   });
-  webviewContainer.appendChild(webview);
-  contentAreaEl.appendChild(webviewContainer);
-  activeWebview = webview;
 
-  let loadingTimeout = null;
-  function showLoadingBar() {
-    loadingBar.classList.remove('hidden');
-    if (!loadingTimeout) {
-      loadingTimeout = setTimeout(() => {
-        loadingBar.classList.add('hidden');
-        loadingTimeout = null;
-      }, 8000);
-    }
-  }
-  function hideLoadingBar() {
-    if (loadingTimeout) {
-      clearTimeout(loadingTimeout);
-      loadingTimeout = null;
-    }
-    loadingBar.classList.add('hidden');
-  }
-  webview.addEventListener('did-start-loading', showLoadingBar);
-  webview.addEventListener('did-finish-load', hideLoadingBar);
-  webview.addEventListener('did-stop-loading', hideLoadingBar);
-  webview.addEventListener('did-fail-load', hideLoadingBar);
+  activeWebview = pane.webview;
 
-  if (hasActiveService) {
-    document.getElementById('toolbar-refresh')?.addEventListener('click', () => activeWebview?.reload());
-    document.getElementById('toolbar-open-external')?.addEventListener('click', () => {
-      const u = activeWebview?.getURL?.();
-      if (u && typeof window.electronAPI?.openExternal === 'function') window.electronAPI.openExternal(u);
-    });
-    document.getElementById('toolbar-fullscreen')?.addEventListener('click', () => {
-      if (typeof window.electronAPI?.toggleFullscreen === 'function') window.electronAPI.toggleFullscreen();
-    });
+  const refreshBtn = document.getElementById('toolbar-refresh');
+  const externalBtn = document.getElementById('toolbar-open-external');
+  const fullscreenBtn = document.getElementById('toolbar-fullscreen');
+  const newRefresh = () => { activeWebview?.reload(); };
+  const newExternal = () => {
+    const u = activeWebview?.getURL?.();
+    if (u && typeof window.electronAPI?.openExternal === 'function') window.electronAPI.openExternal(u);
+  };
+  const newFullscreen = () => {
+    if (typeof window.electronAPI?.toggleFullscreen === 'function') window.electronAPI.toggleFullscreen();
+  };
+  if (refreshBtn) {
+    refreshBtn.replaceWith(refreshBtn.cloneNode(true));
+    document.getElementById('toolbar-refresh')?.addEventListener('click', newRefresh);
+  }
+  if (externalBtn) {
+    externalBtn.replaceWith(externalBtn.cloneNode(true));
+    document.getElementById('toolbar-open-external')?.addEventListener('click', newExternal);
+  }
+  if (fullscreenBtn) {
+    fullscreenBtn.replaceWith(fullscreenBtn.cloneNode(true));
+    document.getElementById('toolbar-fullscreen')?.addEventListener('click', newFullscreen);
   }
 }
 
@@ -685,32 +1010,67 @@ function render() {
   updateMuteAllButton();
 }
 
-function renderPresetServices() {
-  const container = document.getElementById('preset-services');
+const PRESET_FALLBACK_ICON = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2374757e'/%3E%3C/svg%3E";
+
+function renderPresetCategories(searchTerm = '') {
+  const container = document.getElementById('preset-categories');
   if (!container) return;
   container.innerHTML = '';
-  for (const preset of PRESET_SERVICES) {
-    const card = document.createElement('button');
-    card.type = 'button';
-    card.className = 'preset-card flex flex-col items-center gap-2 p-3 bg-zinc-700/30 hover:bg-zinc-600/40 border border-zinc-600/30 rounded-xl text-zinc-300 hover:text-zinc-100 transition-all';
-    const iconUrl = preset.icon || getFaviconUrl(preset.url);
-    const img = document.createElement('img');
-    img.src = iconUrl || 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Ccircle cx="12" cy="12" r="10" fill="%2374757e"/%3E%3C/svg%3E';
-    img.alt = '';
-    img.className = 'w-8 h-8 rounded-lg flex-shrink-0';
-    img.onerror = () => { img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"%3E%3Ccircle cx="12" cy="12" r="10" fill="%2374757e"/%3E%3C/svg%3E'; };
-    const label = document.createElement('span');
-    label.className = 'text-xs font-medium text-center leading-tight truncate w-full';
-    label.textContent = preset.name;
-    card.appendChild(img);
-    card.appendChild(label);
-    card.addEventListener('click', () => {
-      if (inputNameEl) inputNameEl.value = preset.name;
-      if (inputUrlEl) inputUrlEl.value = preset.url;
-      showUrlError('');
-      inputNameEl?.focus();
-    });
-    container.appendChild(card);
+  const term = (searchTerm || '').trim().toLowerCase();
+  for (const cat of presetCategories) {
+    let items = cat.services || [];
+    if (term) {
+      items = items.filter(s =>
+        (s.name || '').toLowerCase().includes(term) ||
+        (s.url || '').toLowerCase().includes(term)
+      );
+    }
+    if (items.length === 0) continue;
+    const section = document.createElement('div');
+    section.className = 'space-y-3';
+    const label = document.createElement('p');
+    label.className = 'preset-cat-header text-xs font-medium text-zinc-500 uppercase tracking-wider sticky top-0 py-1 z-10 bg-[rgba(33,33,36,0.98)]';
+    label.textContent = cat.label || cat.id || 'Outros';
+    section.appendChild(label);
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-4 sm:grid-cols-5 gap-2';
+    for (const preset of items) {
+      const card = document.createElement('button');
+      card.type = 'button';
+      const isAdded = isServiceUrlAdded(preset.url);
+      card.className = 'preset-card relative flex flex-col items-center gap-2 p-3 bg-zinc-700/30 hover:bg-zinc-600/40 border border-zinc-600/30 rounded-xl text-zinc-300 hover:text-zinc-100 transition-all duration-150 ' +
+        (isAdded ? 'opacity-75 ring-1 ring-amber-500/40' : '');
+      const iconUrl = preset.icon || getFaviconUrl(preset.url);
+      const img = document.createElement('img');
+      img.src = iconUrl || PRESET_FALLBACK_ICON;
+      img.alt = '';
+      img.loading = 'lazy';
+      img.className = 'w-8 h-8 rounded-lg flex-shrink-0';
+      img.onerror = () => { img.src = PRESET_FALLBACK_ICON; };
+      const labelSpan = document.createElement('span');
+      labelSpan.className = 'text-xs font-medium text-center leading-tight truncate w-full';
+      labelSpan.textContent = preset.name;
+      card.appendChild(img);
+      card.appendChild(labelSpan);
+      if (isAdded) {
+        const badge = document.createElement('span');
+        badge.className = 'absolute top-1 right-1 text-[10px] px-1.5 py-0.5 rounded bg-amber-500/30 text-amber-400';
+        badge.textContent = 'já tem';
+        card.appendChild(badge);
+      }
+      card.addEventListener('click', () => {
+        if (inputNameEl) inputNameEl.value = preset.name;
+        if (inputUrlEl) inputUrlEl.value = preset.url;
+        pendingModalCustomIcon = null;
+        showUrlError('');
+        updateModalIconPreview();
+        switchModalTab('custom');
+        inputNameEl?.focus();
+      });
+      grid.appendChild(card);
+    }
+    section.appendChild(grid);
+    container.appendChild(section);
   }
 }
 
@@ -718,84 +1078,19 @@ function closeAllDropdowns() {
   document.querySelectorAll('.service-dropdown').forEach(el => el.classList.add('hidden'));
 }
 
-function closeSidebarMenu() {
-  const menu = document.getElementById('sidebar-menu-dropdown');
-  if (menu) menu.classList.add('hidden');
+function openMenuModal() {
+  document.getElementById('modal-menu')?.classList.add('modal-open');
 }
 
-function exportServices() {
-  const blob = new Blob([JSON.stringify(services, null, 2)], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `tim-workspaces-servicos-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
-  closeSidebarMenu();
-}
-
-function parseImportFile(file) {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      try {
-        const data = JSON.parse(reader.result);
-        const list = Array.isArray(data) ? data : (data.services || []);
-        if (!Array.isArray(list)) return reject(new Error('Formato inválido'));
-        const valid = list.filter(s => s && typeof s === 'object' && s.url);
-        resolve(valid);
-      } catch (e) {
-        reject(e);
-      }
-    };
-    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
-    reader.readAsText(file, 'UTF-8');
-  });
-}
-
-function openImportModal(imported) {
-  pendingImportData = imported;
-  const countEl = document.getElementById('import-count');
-  if (countEl) countEl.textContent = String(imported.length);
-  const modal = document.getElementById('modal-import');
-  if (modal) modal.style.display = 'flex';
-}
-
-function closeImportModal() {
-  pendingImportData = null;
-  const modal = document.getElementById('modal-import');
-  if (modal) modal.style.display = 'none';
-}
-
-function applyImport(mode) {
-  if (!pendingImportData || pendingImportData.length === 0) {
-    closeImportModal();
-    return;
-  }
-  const imported = pendingImportData.map(s => ({
-    id: crypto.randomUUID(),
-    name: String(s.name || '').trim() || (() => { try { return new URL(s.url).hostname; } catch { return 'Serviço'; } })(),
-    url: String(s.url).trim(),
-    iconUrl: getFaviconUrl(s.url)
-  }));
-
-  if (mode === 'replace') {
-    services = imported;
-  } else {
-    const existUrls = new Set(services.map(s => s.url));
-    imported.filter(s => !existUrls.has(s.url)).forEach(s => services.push(s));
-  }
-  saveServices();
-  activeServiceId = services[0]?.id ?? null;
-  closeImportModal();
-  render();
-  closeSidebarMenu();
+function closeMenuModal() {
+  document.getElementById('modal-menu')?.classList.remove('modal-open');
 }
 
 function toggleSidebarCollapsed() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   applySidebarCollapsed();
+  showToast(pick(sidebarCollapsed ? SIDEBAR_COLLAPSE_TOASTS : SIDEBAR_EXPAND_TOASTS));
 }
 
 function init() {
@@ -812,7 +1107,17 @@ function init() {
   loadSidebarState();
   loadTheme();
   render();
-  renderPresetServices();
+  loadPresets().then(() => renderPresetCategories());
+
+  const lastCheck = parseInt(localStorage.getItem(LAST_CHECK_KEY), 10);
+  if (Date.now() - (isNaN(lastCheck) ? 0 : lastCheck) > CHECK_THROTTLE_MS) {
+    setTimeout(() => checkForUpdates(true), 1500);
+  }
+
+  if (!localStorage.getItem(FIRST_VISIT_KEY)) {
+    try { localStorage.setItem(FIRST_VISIT_KEY, '1'); } catch {}
+    setTimeout(() => showBigToast(pick(WELCOME_TOASTS), 3500), 800);
+  }
 
   const btnCollapse = document.getElementById('btn-collapse');
   if (btnCollapse) btnCollapse.addEventListener('click', toggleSidebarCollapsed);
@@ -841,18 +1146,61 @@ function init() {
   const modalCancel = document.getElementById('modal-cancel');
   if (modalCancel) modalCancel.addEventListener('click', closeModal);
 
+  document.querySelectorAll('.modal-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tab = btn.dataset.tab;
+      if (tab) switchModalTab(tab);
+    });
+  });
+
+  const presetSearch = document.getElementById('preset-search');
+  if (presetSearch) {
+    presetSearch.addEventListener('input', () => renderPresetCategories(presetSearch.value));
+    presetSearch.addEventListener('search', () => renderPresetCategories(presetSearch.value));
+  }
+
+  const inputIconFile = document.getElementById('input-icon-file');
+  if (inputIconFile) {
+    inputIconFile.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      e.target.value = '';
+      if (!file) return;
+      if (!modalEl?.classList.contains('modal-open')) return;
+      try {
+        const dataUrl = await resizeImageToDataUrl(file, 64);
+        pendingModalCustomIcon = dataUrl;
+        updateModalIconPreview();
+      } catch {
+        showToast('Erro ao carregar imagem');
+      }
+    });
+  }
+
+  const btnPickIcon = document.getElementById('btn-pick-icon');
+  if (btnPickIcon) {
+    btnPickIcon.addEventListener('click', () => {
+      if (inputIconFile) { inputIconFile.value = ''; inputIconFile.click(); }
+    });
+  }
+
+  const btnClearIcon = document.getElementById('btn-clear-icon');
+  if (btnClearIcon) {
+    btnClearIcon.addEventListener('click', () => {
+      pendingModalCustomIcon = null;
+      updateModalIconPreview();
+    });
+  }
+
+  if (inputUrlEl) {
+    inputUrlEl.addEventListener('input', () => updateModalIconPreview());
+    inputUrlEl.addEventListener('change', () => updateModalIconPreview());
+  }
+
   const modalCoffee = document.getElementById('modal-coffee');
   const modalCoffeeOverlay = document.getElementById('modal-coffee-overlay');
   const modalCoffeeClose = document.getElementById('modal-coffee-close');
-  const menuCoffee = document.getElementById('menu-coffee');
   const coffeeCopyPix = document.getElementById('coffee-copy-pix');
   const PIX_KEY = 'a7f1a823-d3b5-4ab3-b63f-03ffed9459f7';
-  if (menuCoffee && modalCoffee) {
-    menuCoffee.addEventListener('click', () => {
-      document.getElementById('sidebar-menu-dropdown')?.classList.add('hidden');
-      modalCoffee.classList.add('modal-open');
-    });
-  }
   if (modalCoffeeOverlay) modalCoffeeOverlay.addEventListener('click', () => modalCoffee?.classList.remove('modal-open'));
   if (modalCoffeeClose) modalCoffeeClose.addEventListener('click', () => modalCoffee?.classList.remove('modal-open'));
   if (coffeeCopyPix) {
@@ -870,8 +1218,10 @@ function init() {
     if (e.key === 'Escape') {
       if (modalEl?.classList.contains('modal-open')) closeModal();
       else if (document.getElementById('modal-delete')?.classList.contains('modal-open')) closeDeleteModal();
-      else if (document.getElementById('modal-import')?.style.display === 'flex') closeImportModal();
+      else if (document.getElementById('modal-menu')?.classList.contains('modal-open')) closeMenuModal();
       else if (modalCoffee?.classList.contains('modal-open')) modalCoffee.classList.remove('modal-open');
+      else if (document.getElementById('modal-update')?.classList.contains('modal-open')) closeUpdateModal();
+      else if (document.getElementById('modal-star')?.classList.contains('modal-open')) document.getElementById('modal-star')?.classList.remove('modal-open');
       return;
     }
     handleModalKeydown(e);
@@ -905,9 +1255,6 @@ function init() {
     if (!e.target.closest('.service-more-btn') && !e.target.closest('.service-dropdown')) {
       closeAllDropdowns();
     }
-    if (!e.target.closest('#btn-sidebar-menu') && !e.target.closest('#sidebar-menu-dropdown')) {
-      closeSidebarMenu();
-    }
   });
 
   const sidebarSearch = document.getElementById('sidebar-search');
@@ -919,30 +1266,42 @@ function init() {
   }
 
   const btnSidebarMenu = document.getElementById('btn-sidebar-menu');
-  const sidebarMenuDropdown = document.getElementById('sidebar-menu-dropdown');
-  if (btnSidebarMenu && sidebarMenuDropdown) {
-    btnSidebarMenu.addEventListener('click', (e) => {
-      e.stopPropagation();
-      const isOpen = !sidebarMenuDropdown.classList.contains('hidden');
-      closeAllDropdowns();
-      sidebarMenuDropdown.classList.toggle('hidden', isOpen);
+  if (btnSidebarMenu) btnSidebarMenu.addEventListener('click', openMenuModal);
+
+  document.getElementById('modal-menu-overlay')?.addEventListener('click', closeMenuModal);
+  document.getElementById('modal-menu-close')?.addEventListener('click', closeMenuModal);
+
+  document.getElementById('menu-option-star')?.addEventListener('click', () => {
+    closeMenuModal();
+    document.getElementById('modal-star')?.classList.add('modal-open');
+  });
+  document.getElementById('menu-option-updates')?.addEventListener('click', () => {
+    closeMenuModal();
+    checkForUpdates(true);
+  });
+  document.getElementById('menu-option-coffee')?.addEventListener('click', () => {
+    closeMenuModal();
+    document.getElementById('modal-coffee')?.classList.add('modal-open');
+  });
+  const updateBanner = document.getElementById('update-available-banner');
+  if (updateBanner) updateBanner.addEventListener('click', () => { if (updateInfo) openUpdateModal(); });
+  document.getElementById('modal-update-overlay')?.addEventListener('click', closeUpdateModal);
+  document.getElementById('modal-update-close')?.addEventListener('click', closeUpdateModal);
+  document.getElementById('modal-update-later')?.addEventListener('click', closeUpdateModal);
+  const modalUpdateDownload = document.getElementById('modal-update-download');
+  if (modalUpdateDownload) {
+    modalUpdateDownload.addEventListener('click', () => {
+      if (updateInfo?.url && typeof window.electronAPI?.openExternal === 'function') {
+        window.electronAPI.openExternal(updateInfo.url);
+      }
+      closeUpdateModal();
     });
   }
 
-  const menuExport = document.getElementById('menu-export');
-  if (menuExport) menuExport.addEventListener('click', exportServices);
-
-  const menuStar = document.getElementById('menu-star');
   const modalStar = document.getElementById('modal-star');
   const modalStarBtn = document.getElementById('modal-star-btn');
   const modalStarLater = document.getElementById('modal-star-later');
   const modalStarOverlay = document.getElementById('modal-star-overlay');
-  if (menuStar && modalStar) {
-    menuStar.addEventListener('click', () => {
-      document.getElementById('sidebar-menu-dropdown')?.classList.add('hidden');
-      modalStar.classList.add('modal-open');
-    });
-  }
   if (modalStarBtn) {
     modalStarBtn.addEventListener('click', () => {
       if (GITHUB_REPO_URL && GITHUB_REPO_URL.startsWith('http') && typeof window.electronAPI?.openExternal === 'function') {
@@ -954,41 +1313,6 @@ function init() {
   if (modalStarLater) modalStarLater.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
   if (modalStarOverlay) modalStarOverlay.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
 
-  const menuImport = document.getElementById('menu-import');
-  const inputImportFile = document.getElementById('input-import-file');
-  if (menuImport && inputImportFile) {
-    menuImport.addEventListener('click', () => {
-      inputImportFile.value = '';
-      inputImportFile.click();
-    });
-    inputImportFile.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      try {
-        const imported = await parseImportFile(file);
-        if (imported.length === 0) {
-          alert('Nenhum serviço válido encontrado no arquivo.');
-          return;
-        }
-        openImportModal(imported);
-      } catch (err) {
-        alert('Erro ao importar: ' + (err.message || 'Formato inválido'));
-      }
-      e.target.value = '';
-    });
-  }
-
-  const modalImportOverlay = document.getElementById('modal-import-overlay');
-  if (modalImportOverlay) modalImportOverlay.addEventListener('click', closeImportModal);
-
-  const modalImportCancel = document.getElementById('modal-import-cancel');
-  if (modalImportCancel) modalImportCancel.addEventListener('click', closeImportModal);
-
-  const modalImportMerge = document.getElementById('modal-import-merge');
-  if (modalImportMerge) modalImportMerge.addEventListener('click', () => applyImport('merge'));
-
-  const modalImportReplace = document.getElementById('modal-import-replace');
-  if (modalImportReplace) modalImportReplace.addEventListener('click', () => applyImport('replace'));
 }
 
 document.addEventListener('DOMContentLoaded', init);

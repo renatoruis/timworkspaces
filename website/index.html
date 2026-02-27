@@ -21,9 +21,15 @@
         </div>
       </div>
       <p class="text-zinc-400 text-lg max-w-md mx-auto">
-        Gerencie seus workspaces com simplicidade.
+        Junta tudo num lugar só — Gmail, WhatsApp, Teams, Slack… sem ficar com 47 abas abertas.
       </p>
     </header>
+
+    <div class="mb-12 rounded-xl border-2 border-amber-500/40 p-4" style="background-color:rgba(251,191,36,0.08)">
+      <p class="text-amber-200/90 text-sm leading-relaxed">
+        <strong>Heads up:</strong> Esse app é um hobbie por enquanto. Pode ter bugs, coisas estranhas e dias em que nada funciona direito. Se tu quiser ajudar a melhorar essa bagaça, manda PR no GitHub ou abre uma issue. Qualquer ajuda é bem-vinda!
+      </p>
+    </div>
 
     <section class="mb-20">
       <div class="rounded-xl overflow-hidden flex items-center justify-center" id="screenshot-carousel-wrap">
@@ -45,7 +51,7 @@
     </section>
 
     <section class="mb-20">
-      <h2 class="text-xl font-medium text-zinc-300 mb-6 text-center">Download</h2>
+      <h2 class="text-xl font-medium text-zinc-300 mb-6 text-center">Baixar</h2>
       <p id="dl-version" class="text-center text-zinc-500 text-sm mb-6">Carregando…</p>
       <div class="flex flex-wrap justify-center gap-4 mb-8">
         <a href="#" id="dl-macos" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
@@ -64,23 +70,25 @@
       <p class="text-center">
         <a href="https://github.com/renatoruis/timworkspaces/releases" id="dl-all" target="_blank" rel="noopener noreferrer" class="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Ver todas as versões no GitHub →</a>
       </p>
-      <p class="text-center text-zinc-500 text-xs mt-2 max-w-md mx-auto">Mac: se aparecer &quot;app está corrompido&quot;, clique com o botão direito → Abrir na primeira vez, ou execute: <code class="bg-zinc-700/50 px-1 rounded text-zinc-300">xattr -cr /Applications/Tim\ Workspaces.app</code></p>
+      <p class="text-center mt-2">
+        <a href="instalacao.html" class="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Deu ruim na instalação? Tem um guia aqui →</a>
+      </p>
     </section>
 
     <section class="mb-20">
       <div class="grid gap-6 sm:grid-cols-3 text-center">
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">Gratuito</h3>
-          <p class="text-zinc-500 text-sm">Não cobramos nunca. Uso livre e gratuito.</p>
+          <h3 class="text-zinc-200 font-medium mb-2">De graça</h3>
+          <p class="text-zinc-500 text-sm">Zero cobrança. Usa à vontade.</p>
           <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Ver licença →</a>
         </div>
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">Seguro</h3>
-          <p class="text-zinc-500 text-sm">Não coletamos NENHUM dado do usuário.</p>
+          <h3 class="text-zinc-200 font-medium mb-2">Sem rastreio</h3>
+          <p class="text-zinc-500 text-sm">Não coletamos NADA. Zero telemetria.</p>
         </div>
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
           <h3 class="text-zinc-200 font-medium mb-2">Open Source</h3>
-          <p class="text-zinc-500 text-sm">Todos podem colaborar e contribuir.</p>
+          <p class="text-zinc-500 text-sm">Código aberto — vem ajudar a melhorar!</p>
           <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Ver no GitHub →</a>
         </div>
       </div>
@@ -88,8 +96,8 @@
       <button type="button" id="btn-coffee" class="mt-10 w-full rounded-xl p-8 border-2 border-amber-500/50 hover:border-amber-500 transition-colors flex items-center justify-center gap-4 text-zinc-100 hover:opacity-90" style="background-color:rgba(33,33,36,0.9)">
         <svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
         <div class="text-left">
-          <span class="block text-xl font-semibold">Me pague um café</span>
-          <span class="block text-zinc-500 text-sm">Apoie o desenvolvimento de forma voluntária</span>
+          <span class="block text-xl font-semibold">Me paga um cafezinho?</span>
+          <span class="block text-zinc-500 text-sm">Se curtir o app, um PIX ajuda a manter isso rodando</span>
         </div>
       </button>
     </section>
@@ -109,8 +117,8 @@
   <div id="modal-coffee" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="display:none;background-color:rgba(0,0,0,0.5)">
     <div class="absolute inset-0" id="modal-coffee-overlay"></div>
     <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Me pague um café</h3>
-      <p class="text-sm text-zinc-400 mb-4">Apoie o desenvolvimento com um PIX.</p>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Me paga um cafezinho?</h3>
+      <p class="text-sm text-zinc-400 mb-4">Se o app te ajuda, um PIX anima demais!</p>
       <div class="flex justify-center mb-4">
         <img src="assets/qr-code-pix.png" alt="QR Code PIX" class="w-40 h-40 object-contain rounded-lg border border-zinc-600/50">
       </div>
