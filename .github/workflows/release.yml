@@ -63,6 +63,7 @@ jobs:
         run: echo "VERSION=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
       - name: Build
+        shell: bash
         run: |
           if [ -z "${CSC_LINK:-}" ]; then
             unset CSC_LINK CSC_KEY_PASSWORD
