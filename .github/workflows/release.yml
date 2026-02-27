@@ -34,8 +34,29 @@ jobs:
         if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y libfuse2
 
+      - name: Import macOS certificate
+        if: matrix.platform == 'mac' && vars.ENABLE_MAC_SIGNING == 'true'
+        env:
+          MAC_CERTIFICATE_BASE64: ${{ secrets.MAC_CERTIFICATE_BASE64 }}
+          MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+        run: |
+          CERT_PATH=$RUNNER_TEMP/build_signing.p12
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          echo "$MAC_CERTIFICATE_BASE64" | base64 -d > $CERT_PATH
+          security create-keychain -p '' $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p '' $KEYCHAIN_PATH
+          security import $CERT_PATH -k $KEYCHAIN_PATH -P "$MAC_CERTIFICATE_PASSWORD" -T /usr/bin/codesign -T /usr/bin/productbuild
+          security list-keychain -d user -s $KEYCHAIN_PATH
+          echo "CSC_LINK=$CERT_PATH" >> $GITHUB_ENV
+          echo "CSC_KEY_PASSWORD=$MAC_CERTIFICATE_PASSWORD" >> $GITHUB_ENV
+
       - name: Install dependencies
         run: pnpm install
+
+      - name: Generate DMG background (macOS)
+        if: matrix.platform == 'mac'
+        run: tiffutil -cathidpicheck build/background.png build/background@2x.png -out build/background.tiff
 
       - name: Get version
         id: version
@@ -45,6 +66,11 @@ jobs:
         run: pnpm run build -- --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CSC_LINK: ${{ env.CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -77,7 +103,7 @@ jobs:
       - name: Collect installers only
         run: |
           mkdir -p release-files
-          find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.pkg" -o -name "*.AppImage" -o -name "*.deb" \) -exec cp {} release-files/ \;
+          find release-artifacts -type f \( -name "*.exe" -o -name "*.dmg" -o -name "*.deb" \) -exec cp {} release-files/ \;
           ls -la release-files/
 
       - name: Delete existing release (if any)

@@ -1,7 +1,7 @@
 {
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
   "author": {
     "name": "Renato Ruis",
@@ -14,7 +14,9 @@
     "dev": "electron .",
     "build": "electron-builder",
     "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
+    "build:dmg-bg": "tiffutil -cathidpicheck build/background.png build/background@2x.png -out build/background.tiff",
+    "build:mac": "pnpm run build:dmg-bg && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac",
+    "build:mac:sign": "pnpm run build:dmg-bg && electron-builder --mac",
     "build:linux": "electron-builder --linux"
   },
   "devDependencies": {
@@ -37,15 +39,7 @@
       "target": [
         {
           "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
-          "target": "portable",
-          "arch": [
-            "x64"
-          ]
+          "arch": "x64"
         }
       ],
       "icon": "src/assets/icone-fundo-escuro.png"
@@ -61,24 +55,39 @@
         }
       ],
       "category": "public.app-category.productivity",
-      "icon": "src/assets/icone-fundo-escuro.png"
+      "icon": "src/assets/icone-fundo-escuro.png",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "linux": {
       "target": [
         {
-          "target": "AppImage",
-          "arch": [
-            "x64"
-          ]
-        },
-        {
           "target": "deb",
-          "arch": [
-            "x64"
-          ]
+          "arch": "x64"
         }
       ],
       "icon": "src/assets/icone-fundo-escuro.png"
+    },
+    "dmg": {
+      "window": {
+        "width": 540,
+        "height": 380
+      },
+      "contents": [
+        {
+          "x": 130,
+          "y": 190,
+          "type": "file"
+        },
+        {
+          "x": 410,
+          "y": 190,
+          "type": "link",
+          "path": "/Applications"
+        }
+      ],
+      "iconSize": 100,
+      "background": "build/background.tiff"
     }
   },
   "pnpm": {

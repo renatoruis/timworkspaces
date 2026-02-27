@@ -31,3 +31,13 @@ out
 .env
 .env.local
 .env.*.local
+
+# Secrets e credenciais
+variables-secrets.json
+
+# Certificates (nunca commitar — contém chave privada)
+*.cer
+*.p12
+*.p8
+Certificates.p12
+Developer-ID-Application-*.cer

@@ -65,6 +65,10 @@ A pasta `/website` contém a landing page do projeto. Para publicar:
 
 Ao fazer merge na `main`, a pipeline GitHub Actions compila para Windows, macOS e Linux e publica em [Releases](https://github.com/renatoruis/timworkspaces/releases). Atualize a versão em `package.json` antes do merge.
 
+### Assinatura macOS (opcional)
+
+Com conta Apple Developer, é possível assinar e notarizar o app para macOS — eliminando o aviso "damaged". Veja [docs/MAC_SIGNING_SETUP.md](docs/MAC_SIGNING_SETUP.md) para configurar os secrets no GitHub.
+
 ## Download
 
 Versões compiladas e instaladores estão disponíveis em: **[Releases](https://github.com/renatoruis/timworkspaces/releases)**

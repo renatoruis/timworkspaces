@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instalação — Tim Workspaces</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>body{font-family:'Figtree',system-ui,sans-serif}</style>
 </head>
 <body class="text-zinc-100 min-h-screen antialiased" style="background-color:#212124">
   <div class="max-w-2xl mx-auto px-6 py-16">
@@ -24,12 +28,12 @@
       <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
         <h2 class="text-lg font-medium text-zinc-200 mb-3">Windows — SmartScreen</h2>
         <p class="text-zinc-500 text-sm mb-3">
-          O Microsoft Defender SmartScreen pode bloquear a execução: <em>&quot;O Windows protegeu seu PC&quot;</em> ou <em>&quot;Um app não reconhecido foi impedido de iniciar&quot;</em>.
+          O Microsoft Defender SmartScreen pode bloquear: <em>&quot;O Windows protegeu seu PC&quot;</em> ou <em>&quot;Um app não reconhecido foi impedido de iniciar&quot;</em>.
         </p>
-        <p class="text-zinc-400 text-sm">
-          O Tim Workspaces é open source e não possui certificado de assinatura (o que custa centenas de dólares por ano). O código é público no <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300">GitHub</a>.
+        <p class="text-zinc-400 text-sm mb-3">
+          O app é open source e não possui certificado de assinatura. Código público no <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300">GitHub</a>.
         </p>
-        <p class="text-zinc-300 text-sm mt-3 font-medium">Como executar:</p>
+        <p class="text-zinc-300 text-sm font-medium">Como executar:</p>
         <ol class="list-decimal list-inside text-zinc-500 text-sm mt-1 space-y-1">
           <li>Clique em <strong>Mais informações</strong></li>
           <li>Clique em <strong>Executar assim mesmo</strong></li>
@@ -37,28 +41,9 @@
       </section>
 
       <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — &quot;O app está corrompido&quot;</h2>
-        <p class="text-zinc-500 text-sm mb-3">
-          A mensagem <em>&quot;Tim Workspaces.app está corrompido e não pode ser aberto&quot;</em> aparece porque o app não é assinado com certificado Apple Developer.
-        </p>
-        <p class="text-zinc-300 text-sm mt-3 font-medium">Opção 1 — Pela interface:</p>
-        <p class="text-zinc-500 text-sm mt-1">Clique com o botão direito no app → <strong>Abrir</strong> (na primeira vez). Depois pode abrir normalmente.</p>
-        <p class="text-zinc-300 text-sm mt-4 font-medium">Opção 2 — Pelo Terminal:</p>
-        <p class="text-zinc-500 text-sm mt-1">Execute para remover o atributo de quarentena:</p>
-        <code class="block mt-2 text-zinc-300 bg-zinc-700/50 rounded-lg px-4 py-2 text-sm font-mono">xattr -cr /Applications/Tim\ Workspaces.app</code>
-      </section>
-
-      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — DMG não ejetar</h2>
+        <h2 class="text-lg font-medium text-zinc-200 mb-3">Linux — .deb</h2>
         <p class="text-zinc-500 text-sm">
-          <em>&quot;The volume can't be ejected&quot;</em> — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para a pasta Aplicativos primeiro.
-        </p>
-      </section>
-
-      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-        <h2 class="text-lg font-medium text-zinc-200 mb-3">macOS — Não sobrescreve versão antiga</h2>
-        <p class="text-zinc-500 text-sm">
-          Exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova, ou o sistema pode manter a versão anterior.
+          Instale com <code class="text-zinc-300 bg-zinc-700/50 px-2 py-0.5 rounded">dpkg -i timworkspaces_*.deb</code> ou use o instalador gráfico do seu ambiente. Se faltar dependências, o sistema deve indicar (ex.: libfuse2 no Ubuntu).
         </p>
       </section>
     </div>

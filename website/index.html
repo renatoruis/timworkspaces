@@ -4,7 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Tim Workspaces</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body { font-family: 'Figtree', system-ui, sans-serif; }
+  </style>
 </head>
 <body class="text-zinc-100 min-h-screen antialiased" style="background-color:#212124">
   <div class="max-w-4xl mx-auto px-6 py-16">
@@ -21,15 +27,9 @@
         </div>
       </div>
       <p class="text-zinc-400 text-lg max-w-md mx-auto">
-        Junta tudo num lugar só — Gmail, WhatsApp, Teams, Slack… sem ficar com 47 abas abertas.
+        Gmail, WhatsApp, Teams, Slack e outros — tudo numa janela, sem abrir 47 abas.
       </p>
     </header>
-
-    <div class="mb-12 rounded-xl border-2 border-amber-500/40 p-4" style="background-color:rgba(251,191,36,0.08)">
-      <p class="text-amber-200/90 text-sm leading-relaxed">
-        <strong>Heads up:</strong> Esse app é um hobbie por enquanto. Pode ter bugs, coisas estranhas e dias em que nada funciona direito. Se tu quiser ajudar a melhorar essa bagaça, manda PR no GitHub ou abre uma issue. Qualquer ajuda é bem-vinda!
-      </p>
-    </div>
 
     <section class="mb-20">
       <div class="rounded-xl overflow-hidden flex items-center justify-center" id="screenshot-carousel-wrap">
@@ -52,54 +52,68 @@
 
     <section class="mb-20">
       <h2 class="text-xl font-medium text-zinc-300 mb-6 text-center">Baixar</h2>
-      <p id="dl-version" class="text-center text-zinc-500 text-sm mb-6">Carregando…</p>
-      <div class="flex flex-wrap justify-center gap-4 mb-8">
-        <a href="#" id="dl-macos" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
-          <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
-          <span>macOS (arm)</span>
-        </a>
-        <a href="#" id="dl-linux" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
-          <img src="https://cdn.simpleicons.org/linux/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
-          <span>Linux (.deb)</span>
-        </a>
-        <a href="#" id="dl-windows" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
-          <svg class="w-8 h-8 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-          <span>Windows (.exe)</span>
-        </a>
+      <p id="dl-version" class="text-center text-zinc-500 text-sm mb-6">—</p>
+      <div class="flex flex-col items-center gap-4 mb-8">
+        <div class="flex flex-wrap justify-center gap-4">
+          <a href="#" id="dl-macos-arm" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
+            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
+            <span>Mac de boy (arm)</span>
+          </a>
+          <a href="#" id="dl-macos-intel" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
+            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
+            <span>Mac Raiz (intel)</span>
+          </a>
+        </div>
+        <div class="flex flex-wrap justify-center gap-3">
+          <a href="#" id="dl-linux" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg hover:opacity-90 border border-sky-500/40 hover:border-sky-500/70 transition-colors text-zinc-300 text-sm font-medium" style="background-color:rgba(33,33,36,0.9)">
+            <img src="https://cdn.simpleicons.org/linux/ffffff" alt="" class="w-5 h-5 flex-shrink-0" width="20" height="20">
+            <span>Linux Topzera!</span>
+          </a>
+          <a href="#" id="dl-windows" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg hover:opacity-90 border border-sky-500/40 hover:border-sky-500/70 transition-colors text-zinc-300 text-sm font-medium" style="background-color:rgba(33,33,36,0.9)">
+            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <span>Windão</span>
+          </a>
+        </div>
       </div>
       <p class="text-center">
         <a href="https://github.com/renatoruis/timworkspaces/releases" id="dl-all" target="_blank" rel="noopener noreferrer" class="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Ver todas as versões no GitHub →</a>
       </p>
       <p class="text-center mt-2">
-        <a href="instalacao.html" class="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Deu ruim na instalação? Tem um guia aqui →</a>
+        <a href="instalacao.html" class="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Problemas no Windows ou Linux? Tem o guia aqui →</a>
       </p>
     </section>
 
     <section class="mb-20">
       <div class="grid gap-6 sm:grid-cols-3 text-center">
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">De graça</h3>
-          <p class="text-zinc-500 text-sm">Zero cobrança. Usa à vontade.</p>
-          <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Ver licença →</a>
+          <h3 class="text-zinc-200 font-medium mb-2">Grátis</h3>
+          <p class="text-zinc-500 text-sm">Sem assinatura, sem cadastro.</p>
+          <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">CC BY-NC — não vender</a>
         </div>
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
           <h3 class="text-zinc-200 font-medium mb-2">Sem rastreio</h3>
-          <p class="text-zinc-500 text-sm">Não coletamos NADA. Zero telemetria.</p>
+          <p class="text-zinc-500 text-sm">Nada é enviado pra fora. Seus dados ficam no seu PC.</p>
         </div>
         <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
           <h3 class="text-zinc-200 font-medium mb-2">Open Source</h3>
-          <p class="text-zinc-500 text-sm">Código aberto — vem ajudar a melhorar!</p>
-          <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Ver no GitHub →</a>
+          <p class="text-zinc-500 text-sm">Código no GitHub. PRs bem-vindos.</p>
+          <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Ver repositório</a>
         </div>
       </div>
 
-      <button type="button" id="btn-coffee" class="mt-10 w-full rounded-xl p-8 border-2 border-amber-500/50 hover:border-amber-500 transition-colors flex items-center justify-center gap-4 text-zinc-100 hover:opacity-90" style="background-color:rgba(33,33,36,0.9)">
-        <svg class="w-10 h-10 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
+      <button type="button" id="btn-coffee" class="mt-10 w-full rounded-xl p-8 border-2 border-sky-500/50 hover:border-sky-500 transition-colors flex items-center justify-center gap-4 text-zinc-100 hover:opacity-90" style="background-color:rgba(33,33,36,0.9)">
+        <svg class="w-10 h-10 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
         <div class="text-left">
-          <span class="block text-xl font-semibold">Me paga um cafezinho?</span>
-          <span class="block text-zinc-500 text-sm">Se curtir o app, um PIX ajuda a manter isso rodando</span>
+          <span class="block text-xl font-semibold">Apoiar o projeto</span>
+          <span class="block text-zinc-500 text-sm">Se o app te ajudar, um PIX é uma forma de retribuir.</span>
         </div>
       </button>
+
+      <div class="mb-12 mt-10 rounded-xl border-2 border-sky-500/40 p-4" style="background-color:rgba(14,165,233,0.08)">
+        <p class="text-sky-200/90 text-sm leading-relaxed">
+          <strong>Observação:</strong> Esse app é um hobbie por enquanto. Pode ter bugs e dias em que nada funciona direito. Quiser ajudar? Manda PR ou abre issue no GitHub.
+        </p>
+      </div>
     </section>
 
     <footer class="text-center text-zinc-500 text-sm flex flex-col items-center gap-4">
@@ -114,11 +128,13 @@
     </footer>
   </div>
 
+
+
   <div id="modal-coffee" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="display:none;background-color:rgba(0,0,0,0.5)">
     <div class="absolute inset-0" id="modal-coffee-overlay"></div>
     <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Me paga um cafezinho?</h3>
-      <p class="text-sm text-zinc-400 mb-4">Se o app te ajuda, um PIX anima demais!</p>
+      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Apoiar o projeto</h3>
+      <p class="text-sm text-zinc-400 mb-4">PIX ou contato abaixo.</p>
       <div class="flex justify-center mb-4">
         <img src="assets/qr-code-pix.png" alt="QR Code PIX" class="w-40 h-40 object-contain rounded-lg border border-zinc-600/50">
       </div>
@@ -131,7 +147,7 @@
       <button type="button" id="modal-coffee-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
-    </div>
+    </div> 
   </div>
 
   <script>
@@ -150,21 +166,24 @@
       fetch(releasesUrl).then(function(r) { return r.json(); }).then(function(data) {
         var ver = document.getElementById('dl-version');
         var assets = data.assets || [];
-        var macDmg = null, linuxDeb = null, winSetup = null;
+        var macArm = null, macIntel = null, linuxDeb = null, winSetup = null;
         for (var i = 0; i < assets.length; i++) {
           var a = assets[i], t = byExt(a.name);
           if (t === 'macos') {
-            if (!macDmg || a.name.toLowerCase().includes('arm64')) macDmg = a.browser_download_url;
+            if (a.name.toLowerCase().includes('arm64')) macArm = a.browser_download_url;
+            else macIntel = a.browser_download_url;
           } else if (t === 'linux-deb') linuxDeb = a.browser_download_url;
           else if (t === 'win-setup') winSetup = a.browser_download_url;
         }
         ver.textContent = 'Versão ' + (data.tag_name || '');
-        document.getElementById('dl-macos').href = macDmg || 'https://github.com/' + repo + '/releases/latest';
+        document.getElementById('dl-macos-arm').href = macArm || 'https://github.com/' + repo + '/releases/latest';
+        document.getElementById('dl-macos-intel').href = macIntel || macArm || 'https://github.com/' + repo + '/releases/latest';
         document.getElementById('dl-linux').href = linuxDeb || 'https://github.com/' + repo + '/releases/latest';
         document.getElementById('dl-windows').href = winSetup || 'https://github.com/' + repo + '/releases/latest';
       }).catch(function() {
         document.getElementById('dl-version').textContent = '';
-        document.getElementById('dl-macos').href = 'https://github.com/' + repo + '/releases/latest';
+        document.getElementById('dl-macos-arm').href = 'https://github.com/' + repo + '/releases/latest';
+        document.getElementById('dl-macos-intel').href = 'https://github.com/' + repo + '/releases/latest';
         document.getElementById('dl-linux').href = 'https://github.com/' + repo + '/releases/latest';
         document.getElementById('dl-windows').href = 'https://github.com/' + repo + '/releases/latest';
       });
