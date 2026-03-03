@@ -284,6 +284,28 @@ function toggleMuteService(id) {
   render();
 }
 
+function toggleDisableService(id) {
+  const idx = services.findIndex(s => s.id === id);
+  if (idx === -1) return;
+  const wasDisabled = !!services[idx].disabled;
+  services[idx].disabled = !wasDisabled;
+  saveServices();
+  if (!wasDisabled) {
+    // Disabling: free memory by destroying the webview
+    removeFromWebviewCache(id);
+    const orderIdx = webviewAccessOrder.indexOf(id);
+    if (orderIdx !== -1) webviewAccessOrder.splice(orderIdx, 1);
+    // If this was the active service, switch to the first enabled one
+    if (activeServiceId === id) {
+      activeServiceId = services.find(s => !s.disabled)?.id ?? id;
+    }
+    showToast('Serviço desativado — memória liberada');
+  } else {
+    showToast('Serviço reativado');
+  }
+  render();
+}
+
 function toggleMuteAll() {
   muteAll = !muteAll;
   localStorage.setItem(MUTE_ALL_KEY, String(muteAll));
@@ -756,10 +778,12 @@ function renderSidebar() {
   for (const service of filtered) {
     const iconUrl = getServiceIconUrl(service);
     const isActive = service.id === activeServiceId;
+    const isDisabled = !!service.disabled;
 
     const row = document.createElement('div');
     row.className = 'service-row group flex items-center gap-2 rounded-lg ' +
-      (isActive ? 'bg-zinc-700/50 border-l-2 border-l-sky-500' : 'hover:bg-zinc-700/30');
+      (isActive ? 'bg-zinc-700/50 border-l-2 border-l-sky-500' : 'hover:bg-zinc-700/30') +
+      (isDisabled ? ' opacity-50' : '');
     row.dataset.id = service.id;
     row.dataset.index = String(services.indexOf(service));
     row.title = service.name;
@@ -816,11 +840,17 @@ function renderSidebar() {
     img.className = 'w-6 h-6 rounded bg-zinc-600/50 service-icon-img block';
     img.onerror = () => { img.src = fallbackIcon; };
 
-    // Icon wrapper — badge overlays the top-right corner of the icon
+    // Icon wrapper — badge / disabled overlay on top-right corner
     const iconWrap = document.createElement('div');
     iconWrap.className = 'service-icon-wrap';
     iconWrap.style.cssText = 'position:relative;flex-shrink:0;width:1.5rem;height:1.5rem;overflow:visible;';
     iconWrap.appendChild(img);
+    if (isDisabled) {
+      const pauseOverlay = document.createElement('span');
+      pauseOverlay.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#71717a;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px #212124;';
+      pauseOverlay.innerHTML = '<svg width="6" height="6" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
+      iconWrap.appendChild(pauseOverlay);
+    }
     const pendingCount = notificationCounts.get(service.id) || 0;
     if (pendingCount > 0) {
       const badge = document.createElement('span');
@@ -901,6 +931,15 @@ function renderSidebar() {
     duplicateItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Duplicar';
     duplicateItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); duplicateService(service); });
     dropdown.appendChild(duplicateItem);
+    const disableItem = document.createElement('button');
+    disableItem.type = 'button';
+    disableItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (isDisabled ? 'text-sky-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
+    disableItem.innerHTML = isDisabled
+      ? '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Reativar serviço'
+      : '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Desativar serviço';
+    disableItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); toggleDisableService(service.id); });
+    dropdown.appendChild(disableItem);
+
     const removeItem = document.createElement('button');
     removeItem.type = 'button';
     removeItem.className = 'w-full px-3 py-2 text-left text-sm text-red-400 hover:bg-zinc-600 hover:text-red-300 flex items-center gap-2';
@@ -928,10 +967,10 @@ function renderContentArea() {
   });
 
   const hasActiveService = services.length > 0;
-  const active = hasActiveService
-    ? (services.find(s => s.id === activeServiceId) || services[0])
-    : null;
+  const activeCandidate = services.find(s => s.id === activeServiceId);
+  const active = hasActiveService ? (activeCandidate || services[0]) : null;
   if (active) activeServiceId = active.id;
+  const activeIsDisabled = active?.disabled === true;
 
   function injectMuteIfNeeded(wv, serviceId) {
     if (!isServiceMuted(serviceId)) return;
@@ -943,6 +982,9 @@ function renderContentArea() {
 
   function injectLightTheme(wv) {
     function doInject() {
+      // Only force light theme in webviews when the app itself is in light mode.
+      // In dark mode, let webviews follow their natural/OS preference.
+      if (document.body.dataset.theme !== 'light') return;
       wv.executeJavaScript(LIGHT_THEME_SCRIPT).catch(() => {});
       try { wv.insertCSS(LIGHT_THEME_CSS); } catch (_) {}
     }
@@ -1069,14 +1111,41 @@ function renderContentArea() {
     return;
   }
 
+  if (activeIsDisabled) {
+    contentAreaEl.innerHTML = `
+      <div class="flex-1 flex flex-col items-center justify-center gap-5 p-8 text-center h-full">
+        <div style="width:56px;height:56px;border-radius:50%;background:rgba(113,113,122,0.15);display:flex;align-items:center;justify-content:center;">
+          <svg width="28" height="28" fill="none" stroke="#71717a" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        </div>
+        <div>
+          <h2 class="text-lg font-semibold text-zinc-400 mb-1">${active.name} está desativado</h2>
+          <p class="text-sm text-zinc-500 max-w-xs">Reative o serviço para carregar o conteúdo e liberar a memória quando não precisar.</p>
+        </div>
+        <button type="button" id="content-reenable-btn" class="px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-sky-500/20">
+          Reativar ${active.name}
+        </button>
+      </div>
+    `;
+    contentAreaEl.querySelector('#content-reenable-btn')?.addEventListener('click', () => toggleDisableService(active.id));
+    activeWebview = null;
+    return;
+  }
+
   let toolbar = contentAreaEl.querySelector('#content-toolbar');
   let webviewPanes = contentAreaEl.querySelector('#content-panes');
   if (!webviewPanes) {
     contentAreaEl.innerHTML = '';
     toolbar = document.createElement('div');
     toolbar.id = 'content-toolbar';
-    toolbar.className = 'flex items-center justify-end gap-0.5 px-2 py-1 bg-zinc-800/50 border-b border-zinc-600/30 flex-shrink-0';
+    toolbar.className = 'flex items-center gap-0.5 px-2 py-1 bg-zinc-800/50 border-b border-zinc-600/30 flex-shrink-0';
     toolbar.innerHTML = `
+      <button type="button" id="toolbar-back" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Voltar" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      </button>
+      <button type="button" id="toolbar-forward" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Avançar" disabled>
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+      </button>
+      <div class="flex-1 min-w-0"></div>
       <button type="button" id="toolbar-refresh" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors" title="Recarregar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
@@ -1111,9 +1180,27 @@ function renderContentArea() {
   }
   updateWindowTitle(active?.name);
 
+  function updateNavButtons() {
+    const backBtn = document.getElementById('toolbar-back');
+    const fwdBtn = document.getElementById('toolbar-forward');
+    if (!activeWebview) return;
+    try {
+      if (backBtn) backBtn.disabled = !activeWebview.canGoBack();
+      if (fwdBtn) fwdBtn.disabled = !activeWebview.canGoForward();
+    } catch {}
+  }
+
+  activeWebview.addEventListener('did-navigate', updateNavButtons);
+  activeWebview.addEventListener('did-navigate-in-page', updateNavButtons);
+  updateNavButtons();
+
+  const backBtn = document.getElementById('toolbar-back');
+  const fwdBtn = document.getElementById('toolbar-forward');
   const refreshBtn = document.getElementById('toolbar-refresh');
   const externalBtn = document.getElementById('toolbar-open-external');
   const fullscreenBtn = document.getElementById('toolbar-fullscreen');
+  const newBack = () => { try { activeWebview?.goBack(); } catch {} };
+  const newForward = () => { try { activeWebview?.goForward(); } catch {} };
   const newRefresh = () => { activeWebview?.reload(); };
   const newExternal = () => {
     const u = activeWebview?.getURL?.();
@@ -1122,6 +1209,14 @@ function renderContentArea() {
   const newFullscreen = () => {
     if (typeof window.electronAPI?.toggleFullscreen === 'function') window.electronAPI.toggleFullscreen();
   };
+  if (backBtn) {
+    backBtn.replaceWith(backBtn.cloneNode(true));
+    document.getElementById('toolbar-back')?.addEventListener('click', newBack);
+  }
+  if (fwdBtn) {
+    fwdBtn.replaceWith(fwdBtn.cloneNode(true));
+    document.getElementById('toolbar-forward')?.addEventListener('click', newForward);
+  }
   if (refreshBtn) {
     refreshBtn.replaceWith(refreshBtn.cloneNode(true));
     document.getElementById('toolbar-refresh')?.addEventListener('click', newRefresh);

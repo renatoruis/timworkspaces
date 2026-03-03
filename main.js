@@ -333,7 +333,8 @@ app.on('web-contents-created', (_, webContents) => {
           }
         });
       } else {
-        webContents.loadURL(url);
+        // Open external links in the system browser, not inside the webview
+        shell.openExternal(url);
       }
       return { action: 'deny' };
     });
