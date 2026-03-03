@@ -1,14 +1,148 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog } = require('electron');
 const path = require('path');
+const fs = require('fs');
 
 app.setName('Tim Workspaces');
 if (process.platform === 'linux') process.title = 'Tim Workspaces';
 let mainWindow = null;
+let tray = null;
+let isQuitting = false;
+
+// --- Window bounds persistence ---
+
+function loadWindowBounds() {
+  try {
+    const stateFile = path.join(app.getPath('userData'), 'window-state.json');
+    if (fs.existsSync(stateFile)) {
+      return JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+    }
+  } catch {}
+  return { width: 1280, height: 760 };
+}
+
+function saveWindowBounds(bounds) {
+  try {
+    const stateFile = path.join(app.getPath('userData'), 'window-state.json');
+    fs.writeFileSync(stateFile, JSON.stringify(bounds), 'utf8');
+  } catch {}
+}
+
+// --- Native menu ---
+
+function buildMenu() {
+  const isMac = process.platform === 'darwin';
+  const isDev = !app.isPackaged;
+
+  if (isMac) {
+    const template = [
+      {
+        label: 'Tim Workspaces',
+        submenu: [
+          { role: 'about' },
+          { type: 'separator' },
+          { role: 'services' },
+          { type: 'separator' },
+          { role: 'hide' },
+          { role: 'hideOthers' },
+          { role: 'unhide' },
+          { type: 'separator' },
+          { role: 'quit' }
+        ]
+      },
+      {
+        label: 'Edit',
+        submenu: [
+          { role: 'undo' },
+          { role: 'redo' },
+          { type: 'separator' },
+          { role: 'cut' },
+          { role: 'copy' },
+          { role: 'paste' },
+          { role: 'selectAll' }
+        ]
+      },
+      {
+        label: 'View',
+        submenu: [
+          { role: 'reload' },
+          { role: 'togglefullscreen' },
+          ...(isDev ? [{ role: 'toggleDevTools' }] : [])
+        ]
+      },
+      {
+        label: 'Window',
+        submenu: [
+          { role: 'minimize' },
+          { role: 'zoom' },
+          { role: 'close' }
+        ]
+      }
+    ];
+    return Menu.buildFromTemplate(template);
+  }
+
+  // Windows / Linux
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Edit',
+      submenu: [
+        { role: 'cut' },
+        { role: 'copy' },
+        { role: 'paste' },
+        { role: 'selectAll' }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'togglefullscreen' },
+        ...(isDev ? [{ role: 'toggleDevTools' }] : [])
+      ]
+    },
+    {
+      label: 'Help',
+      submenu: [
+        {
+          label: 'About Tim Workspaces',
+          click: () => {
+            dialog.showMessageBox(mainWindow, {
+              type: 'info',
+              title: 'Tim Workspaces',
+              message: 'Tim Workspaces',
+              detail: `Version: ${app.getVersion()}\nby Renato Ruis`,
+              buttons: ['OK']
+            });
+          }
+        },
+        {
+          label: 'GitHub',
+          click: () => shell.openExternal('https://github.com/renatoruis/timworkspaces')
+        }
+      ]
+    }
+  ];
+  return Menu.buildFromTemplate(template);
+}
+
+// --- createWindow ---
 
 function createWindow() {
+  const bounds = loadWindowBounds();
+
   mainWindow = new BrowserWindow({
-    width: 800,
-    height: 600,
+    width: bounds.width,
+    height: bounds.height,
+    x: bounds.x,
+    y: bounds.y,
+    minWidth: 900,
+    minHeight: 600,
     title: 'Tim Workspaces',
     webPreferences: {
       nodeIntegration: false,
@@ -19,14 +153,77 @@ function createWindow() {
   });
 
   mainWindow.loadFile(path.join(__dirname, 'src', 'index.html'));
+
+  let boundsDebounce = null;
+  const saveBoundsDebounced = () => {
+    clearTimeout(boundsDebounce);
+    boundsDebounce = setTimeout(() => {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        saveWindowBounds(mainWindow.getBounds());
+      }
+    }, 500);
+  };
+
+  mainWindow.on('resize', saveBoundsDebounced);
+  mainWindow.on('move', saveBoundsDebounced);
+
+  mainWindow.on('close', (e) => {
+    if (tray && process.platform !== 'darwin' && !isQuitting) {
+      e.preventDefault();
+      mainWindow.hide();
+      return;
+    }
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      saveWindowBounds(mainWindow.getBounds());
+    }
+  });
+
   mainWindow.on('closed', () => { mainWindow = null; });
 }
+
+// --- IPC handlers ---
 
 ipcMain.handle('open-external', (_, url) => {
   if (url && typeof url === 'string' && url.startsWith('http')) shell.openExternal(url);
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());
+
+ipcMain.handle('get-platform-info', () => ({
+  platform: process.platform,
+  shouldUseDarkColors: nativeTheme.shouldUseDarkColors
+}));
+
+ipcMain.handle('set-title', (_, title) => {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(title);
+});
+
+ipcMain.handle('export-config', async (_, jsonStr) => {
+  const result = await dialog.showSaveDialog(mainWindow, {
+    defaultPath: 'timworkspaces-config.json',
+    filters: [{ name: 'JSON', extensions: ['json'] }]
+  });
+  if (result.canceled || !result.filePath) return { success: false, cancelled: true };
+  try {
+    fs.writeFileSync(result.filePath, jsonStr, 'utf8');
+    return { success: true };
+  } catch {
+    return { success: false };
+  }
+});
+
+ipcMain.handle('import-config', async () => {
+  try {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      filters: [{ name: 'JSON', extensions: ['json'] }],
+      properties: ['openFile']
+    });
+    if (result.canceled || !result.filePaths || result.filePaths.length === 0) return null;
+    return fs.readFileSync(result.filePaths[0], 'utf8');
+  } catch {
+    return null;
+  }
+});
 
 const RELEASES_URL = 'https://api.github.com/repos/renatoruis/timworkspaces/releases/latest';
 function compareVersions(current, latest) {
@@ -144,13 +341,62 @@ app.on('web-contents-created', (_, webContents) => {
 });
 
 app.whenReady().then(() => {
-  nativeTheme.themeSource = 'light';
-  if (process.platform === 'darwin' && app.dock) {
+  if (process.platform === 'darwin') {
+    app.setAboutPanelOptions({
+      applicationName: 'Tim Workspaces',
+      applicationVersion: app.getVersion(),
+      credits: 'by Renato Ruis',
+      website: 'https://github.com/renatoruis/timworkspaces'
+    });
     const iconPath = path.join(__dirname, 'src', 'assets', 'icone-fundo-escuro.png');
-    app.dock.setIcon(iconPath);
+    if (app.dock) app.dock.setIcon(iconPath);
   }
+
+  Menu.setApplicationMenu(buildMenu());
   createWindow();
+
+  if (process.platform !== 'darwin') {
+    const iconPath = path.join(__dirname, 'src', 'assets', 'icone-fundo-escuro.png');
+    const trayIcon = nativeImage.createFromPath(iconPath);
+    tray = new Tray(trayIcon);
+    tray.setToolTip('Tim Workspaces');
+    const trayMenu = Menu.buildFromTemplate([
+      {
+        label: 'Abrir Tim Workspaces',
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+          } else {
+            createWindow();
+          }
+        }
+      },
+      {
+        label: 'Sair',
+        click: () => {
+          tray = null;
+          app.quit();
+        }
+      }
+    ]);
+    tray.setContextMenu(trayMenu);
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) {
+          mainWindow.focus();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      } else {
+        createWindow();
+      }
+    });
+  }
 });
+
+app.on('before-quit', () => { isQuitting = true; });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

@@ -14,7 +14,7 @@
         { "name": "Discord",         "url": "https://discord.com/app",          "icon": "https://cdn.simpleicons.org/discord" },
         { "name": "Signal",          "url": "https://signal.org",               "icon": "https://cdn.simpleicons.org/signal" },
         { "name": "Slack",           "url": "https://app.slack.com",            "icon": "https://a.slack-edge.com/e6a93c1/img/icons/favicon-32.png" },
-        { "name": "Microsoft Teams", "url": "https://teams.microsoft.com",      "icon": "https://statics.teams.cdn.office.net/evergreen-assets/icons/microsoft_teams_logo_refresh_v2025.ico" },
+        { "name": "Microsoft Teams", "url": "https://teams.cloud.microsoft",      "icon": "https://statics.teams.cdn.office.net/evergreen-assets/icons/microsoft_teams_logo_refresh_v2025.ico" },
         { "name": "Google Chat",     "url": "https://chat.google.com",          "icon": "https://cdn.simpleicons.org/googlechat" },
         { "name": "Zoom",            "url": "https://zoom.us/wc",               "icon": "https://cdn.simpleicons.org/zoom" },
         { "name": "Google Meet",     "url": "https://meet.google.com",          "icon": "https://cdn.simpleicons.org/googlemeet" },

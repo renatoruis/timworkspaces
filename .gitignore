@@ -41,3 +41,6 @@ variables-secrets.json
 *.p8
 Certificates.p12
 Developer-ID-Application-*.cer
+
+# Tailwind CSS build output (gerado por pnpm run build:css)
+src/tailwind.output.css
