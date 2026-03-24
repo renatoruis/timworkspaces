@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer } = require('electron');
 const path = require('path');
 const fs = require('fs');
 
@@ -7,6 +7,46 @@ if (process.platform === 'linux') process.title = 'Tim Workspaces';
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
+
+// Permissões concedidas em webviews (request + check devem alinhar; senão o site re-pede notificação, tela, etc.)
+const WEBVIEW_PERMISSION_ALLOW = new Set([
+  'media',
+  'microphone',
+  'camera',
+  'audioCapture',
+  'videoCapture',
+  'notifications',
+  'display-capture',
+  'fullscreen',
+  'speaker-selection',
+  'window-management'
+]);
+
+function attachWebviewDisplayMediaHandler(session) {
+  session.setDisplayMediaRequestHandler((request, callback) => {
+    desktopCapturer
+      .getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 150, height: 150 },
+        fetchWindowIcons: true
+      })
+      .then((sources) => {
+        if (!sources.length) {
+          callback({});
+          return;
+        }
+        const video = sources.find((s) => s.id.startsWith('screen:')) || sources[0];
+        const streams = { video };
+        if (request.audioRequested && process.platform === 'win32') {
+          streams.audio = 'loopback';
+        }
+        callback(streams);
+      })
+      .catch(() => {
+        callback({});
+      });
+  }, { useSystemPicker: true });
+}
 
 // --- Window bounds persistence ---
 
@@ -321,16 +361,15 @@ ipcMain.handle('toggle-fullscreen', () => {
 
 app.on('web-contents-created', (_, webContents) => {
   if (webContents.getType?.() === 'webview') {
-    // Grant media permissions so webviews can access microphone, camera and audio
-    webContents.session.setPermissionRequestHandler((_wc, permission, callback) => {
-      const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture', 'notifications', 'display-capture'];
-      callback(allowed.includes(permission));
+    const ses = webContents.session;
+
+    ses.setPermissionRequestHandler((_wc, permission, callback) => {
+      callback(WEBVIEW_PERMISSION_ALLOW.has(permission));
     });
 
-    webContents.session.setPermissionCheckHandler((_wc, permission) => {
-      const allowed = ['media', 'microphone', 'camera', 'audioCapture', 'videoCapture'];
-      return allowed.includes(permission);
-    });
+    ses.setPermissionCheckHandler((_wc, permission) => WEBVIEW_PERMISSION_ALLOW.has(permission));
+
+    attachWebviewDisplayMediaHandler(ses);
 
     webContents.setWindowOpenHandler(({ url }) => {
       if (!url || typeof url !== 'string' || (!url.startsWith('http://') && !url.startsWith('https://'))) {

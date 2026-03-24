@@ -5,97 +5,105 @@
 <h1 align="center">Tim Workspaces</h1>
 
 <p align="center">
-  <a href="https://github.com/renatoruis/timworkspaces/releases"><img src="https://img.shields.io/github/v/release/renatoruis/timworkspaces?include_prereleases" alt="Release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/renatoruis/timworkspaces" alt="License"></a>
-  <a href="https://github.com/renatoruis/timworkspaces/stargazers"><img src="https://img.shields.io/github/stars/renatoruis/timworkspaces" alt="Stars"></a>
-  <a href="https://github.com/renatoruis/timworkspaces"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey" alt="Platform"></a>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-37-47848f" alt="Electron"></a>
+  <strong>Um só lugar para WhatsApp Web, Gmail, Teams, Slack e o que mais você usa no browser.</strong>
 </p>
 
-Agregador de ferramentas web em um único ambiente: WhatsApp, Gmail, Microsoft Teams, Slack e outras aplicações que você usa no dia a dia. Centralize suas comunicações e produtividade em uma única janela.
+<p align="center">
+  <a href="https://timworkspaces.com/">Site</a>
+  ·
+  <a href="https://github.com/renatoruis/timworkspaces/releases">Downloads</a>
+  ·
+  <a href="https://github.com/renatoruis/timworkspaces/issues">Issues</a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/renatoruis/timworkspaces/actions/workflows/release.yml"><img src="https://github.com/renatoruis/timworkspaces/actions/workflows/release.yml/badge.svg" alt="Build"></a>
+  <a href="https://github.com/renatoruis/timworkspaces/releases/latest"><img src="https://img.shields.io/github/v/release/renatoruis/timworkspaces?label=release" alt="Última release"></a>
+  <a href="https://github.com/renatoruis/timworkspaces/releases"><img src="https://img.shields.io/github/downloads/renatoruis/timworkspaces/total?label=downloads" alt="Downloads"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/renatoruis/timworkspaces" alt="Licença"></a>
+  <a href="https://github.com/renatoruis/timworkspaces/stargazers"><img src="https://img.shields.io/github/stars/renatoruis/timworkspaces?style=flat" alt="Stars"></a>
+  <br>
+  <a href="https://github.com/renatoruis/timworkspaces"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2d2d2d" alt="Plataformas"></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-37-47848f" alt="Electron"></a>
+  <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10-f69220?logo=pnpm&logoColor=white" alt="pnpm"></a>
+</p>
+
+---
 
 ## Screenshot
 
 ![Tim Workspaces](website/screenshot-1.png)
 
-## Instalação e execução
+## Funcionalidades
+
+| | |
+| --- | --- |
+| **Várias ferramentas** | WhatsApp, Gmail, Teams, Slack e outras em abas |
+| **Sessões separadas** | Cada serviço com sua própria sessão (várias contas, etc.) |
+| **Uma janela** | Menos alt-tab entre apps de browser |
+| **Tema claro / escuro** | Ajuste rápido na interface do app |
+| **Desktop** | Windows, macOS e Linux (builds na [aba Releases](https://github.com/renatoruis/timworkspaces/releases)) |
+
+## Instalação para desenvolver
 
 ```bash
-# Clone o repositório
 git clone https://github.com/renatoruis/timworkspaces.git
 cd timworkspaces
-
-# Instale as dependências (use pnpm)
 pnpm install
-
-# Execute o aplicativo
 pnpm run start
 ```
 
-Alternativa com npm:
+Use **pnpm** (recomendado). Com npm: `npm install` e `npm run start`.
+
+## Download (binários)
+
+Instaladores prontos: **[GitHub Releases](https://github.com/renatoruis/timworkspaces/releases/latest)** (`.exe`, `.dmg`, `.deb`).
+
+Cada push na branch `main` que altera código dispara o workflow **Build and Release**, que gera artefatos e publica/atualiza a release da versão em `package.json`.
+
+### Windows
+
+Baixe o `.exe`. Se o SmartScreen avisar: **Mais informações** → **Executar assim mesmo**. O instalador pode não estar assinado com certificado pago; o código-fonte é público.
+
+### macOS
+
+Use o `.dmg` correto (**arm64** Apple Silicon ou **x64** Intel). Arraste para **Aplicativos**. Na primeira abertura, se aparecer aviso de app não assinado: clique com o botão direito → **Abrir**, ou:
 
 ```bash
-npm install
-npm run start
+xattr -cr /Applications/Tim\ Workspaces.app
 ```
 
-## Funcionalidades principais
+**Gravação de tela** (compartilhar tela em Meet/Teams, etc.): em **Ajustes do sistema** → **Privacidade e segurança** → **Gravação de tela**, permita o Tim Workspaces.
 
-- **Integração múltipla** — WhatsApp, Gmail, Teams, Slack e outras ferramentas em abas
-- **Contas separadas** — Cada aba mantém sua própria sessão (múltiplas contas Gmail, etc.)
-- **Interface unificada** — Uma janela para todas as suas aplicações web
-- **Tema claro/escuro** — Alternância entre modos de visualização
-- **Cross-platform** — Funciona em Windows, macOS e Linux
-- **Leve e simples** — Interface minimalista e funcional
-- **Gratuito** — Sem custos e sempre será
+### Linux
+
+Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
+
+## Changelog recente
+
+### v1.3.3
+
+- Permissões de **webview** alinhadas entre *request* e *check* (menos loops pedindo notificação ou permissão de tela).
+- Suporte a **compartilhamento de tela** via `setDisplayMediaRequestHandler` (seletor nativo no macOS quando disponível + fallback com `desktopCapturer`).
+- **macOS:** `NSScreenCaptureUsageDescription` para o prompt de captura de tela do sistema.
 
 ## Tecnologias
 
-- [Electron](https://www.electronjs.org/) — Framework para aplicativos desktop multiplataforma
-- JavaScript/HTML/CSS
+- [Electron](https://www.electronjs.org/) — shell desktop
+- JavaScript, HTML, CSS ([Tailwind](https://tailwindcss.com/) no build)
 
-## Website
+## Site e documentação
 
-A pasta `/website` contém a landing page do projeto. Para publicar:
-
-1. A landing page já inclui logo e screenshots
-2. Hospede o conteúdo em GitHub Pages, Vercel ou similar, apontando para a pasta `website`
-
-## Release
-
-Ao fazer merge na `main`, a pipeline GitHub Actions compila para Windows, macOS e Linux e publica em [Releases](https://github.com/renatoruis/timworkspaces/releases). Atualize a versão em `package.json` antes do merge.
-
-### Assinatura macOS (opcional)
-
-Com conta Apple Developer, é possível assinar e notarizar o app para macOS — eliminando o aviso "damaged". Veja [docs/MAC_SIGNING_SETUP.md](docs/MAC_SIGNING_SETUP.md) para configurar os secrets no GitHub.
-
-## Download
-
-Versões compiladas e instaladores estão disponíveis em: **[Releases](https://github.com/renatoruis/timworkspaces/releases)**
-
-### Instalação no Windows
-
-Baixe o `.exe` (instalador NSIS ou portable). Se o SmartScreen bloquear: clique em **Mais informações** → **Executar assim mesmo**. O app não é assinado (open source), mas o código é público no GitHub.
-
-### Instalação no macOS
-
-Baixe o `.dmg` na versão compatível (arm64 para Apple Silicon, x64 para Intel). Arraste o app para a pasta Aplicativos. Feche o app antes de ejetar o disco.
-
-**Problemas comuns:**
-- *"O app está corrompido e não pode ser aberto"* — O app não é assinado (open source). Clique com o botão direito no app → "Abrir" na primeira vez, ou execute no Terminal: `xattr -cr /Applications/Tim\ Workspaces.app`
-- *"The volume can't be ejected"* — Feche o Tim Workspaces completamente (Cmd+Q) antes de ejetar. Não execute o app diretamente do DMG; arraste-o para Aplicativos primeiro.
-- *Não sobrescreve a instalação anterior* — Exclua manualmente a versão antiga em Aplicativos antes de arrastar a nova.
+- Site público: **[timworkspaces.com](https://timworkspaces.com/)** (GitHub Pages a partir da pasta `website/`).
+- Assinatura e notarização **macOS** (opcional, conta Apple Developer): configure secrets no repositório e a variável `ENABLE_MAC_SIGNING` conforme o workflow em `.github/workflows/release.yml`.
 
 ## Contribuir
 
-Contribuições são bem-vindas! Você pode:
-
-- Abrir [Issues](https://github.com/renatoruis/timworkspaces/issues) para reportar bugs ou sugerir melhorias
-- Enviar [Pull Requests](https://github.com/renatoruis/timworkspaces/pulls) com correções ou novas funcionalidades
-- Melhorar documentação, traduções ou a experiência do usuário
+- [Issues](https://github.com/renatoruis/timworkspaces/issues) — bugs e ideias  
+- [Pull requests](https://github.com/renatoruis/timworkspaces/pulls) — correções e melhorias  
 
 Tim Workspaces é **gratuito e sempre será** — feito com a colaboração da comunidade.
 
 ## Licença
 
-Este projeto está licenciado sob [Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)](LICENSE) — permite uso, modificação e compartilhamento, mas proíbe uso comercial (incluindo venda).
+[Creative Commons Attribution-NonCommercial 4.0 (CC BY-NC 4.0)](LICENSE) — uso e modificação permitidos; **uso comercial** (incluindo venda) não permitido.
