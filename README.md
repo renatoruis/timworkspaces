@@ -81,6 +81,11 @@ Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
 ## Changelog recente
 
+### v1.4.1
+
+- Link **Dar estrelinha no GitHub** abre o repositório direto no navegador.
+- Ícone do **tray no macOS** redimensionado (18×18) em vez do PNG 512×512.
+
 ### v1.3.3
 
 - Permissões de **webview** alinhadas entre *request* e *check* (menos loops pedindo notificação ou permissão de tela).

@@ -325,8 +325,12 @@ function createWindow() {
 
 // --- IPC handlers ---
 
-ipcMain.handle('open-external', (_, url) => {
-  if (url && typeof url === 'string' && url.startsWith('http')) shell.openExternal(url);
+ipcMain.handle('open-external', async (_, targetUrl) => {
+  if (targetUrl && typeof targetUrl === 'string' && targetUrl.startsWith('http')) {
+    await shell.openExternal(targetUrl);
+    return true;
+  }
+  return false;
 });
 
 ipcMain.handle('get-app-version', () => app.getVersion());
@@ -597,11 +601,24 @@ app.on('web-contents-created', (_, webContents) => {
   }
 });
 
+function createTrayIcon() {
+  const iconPath = path.join(
+    __dirname,
+    'src',
+    'assets',
+    process.platform === 'darwin' ? 'icons/icon-timworkspaces-escuro-cir.png' : 'icone-fundo-escuro.png'
+  );
+  const source = nativeImage.createFromPath(iconPath);
+  if (source.isEmpty()) return source;
+  const size = process.platform === 'darwin' ? 18 : 16;
+  return source.resize({ width: size, height: size, quality: 'best' });
+}
+
 // 3.4 — Tray (todas as plataformas)
 function setupTray() {
   try {
-    const iconPath = path.join(__dirname, 'src', 'assets', 'icone-fundo-escuro.png');
-    const trayIcon = nativeImage.createFromPath(iconPath);
+    const trayIcon = createTrayIcon();
+    if (trayIcon.isEmpty()) return;
     tray = new Tray(trayIcon);
     if (process.platform === 'darwin') tray.setIgnoreDoubleClickEvents(true);
     tray.setToolTip('Tim Workspaces');

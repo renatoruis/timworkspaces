@@ -9,6 +9,12 @@ const DEFAULT_URL_KEY = 'timworkspaces-default-url';
 const DEFAULT_URL_FALLBACK = 'https://timdevops.com.br';
 
 const GITHUB_REPO_URL = 'https://github.com/renatoruis/timworkspaces';
+
+function openExternalUrl(url) {
+  if (!url || typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve(false);
+  if (typeof window.electronAPI?.openExternal !== 'function') return Promise.resolve(false);
+  return window.electronAPI.openExternal(url).catch(() => false);
+}
 const LAST_CHECK_KEY = 'timworkspaces-last-update-check';
 const LAST_SEEN_UPDATE_KEY = 'timworkspaces-last-seen-update';
 const CHECK_THROTTLE_MS = 24 * 60 * 60 * 1000;
@@ -1928,7 +1934,9 @@ function init() {
 
   document.getElementById('menu-option-star')?.addEventListener('click', () => {
     closeMenuModal();
-    document.getElementById('modal-star')?.classList.add('modal-open');
+    openExternalUrl(GITHUB_REPO_URL).then((ok) => {
+      if (!ok) showToast('Não deu pra abrir o navegador', { type: 'error' });
+    });
   });
   document.getElementById('menu-option-updates')?.addEventListener('click', () => {
     closeMenuModal();
@@ -1959,9 +1967,9 @@ function init() {
   const modalStarOverlay = document.getElementById('modal-star-overlay');
   if (modalStarBtn) {
     modalStarBtn.addEventListener('click', () => {
-      if (GITHUB_REPO_URL && GITHUB_REPO_URL.startsWith('http') && typeof window.electronAPI?.openExternal === 'function') {
-        window.electronAPI.openExternal(GITHUB_REPO_URL);
-      }
+      openExternalUrl(GITHUB_REPO_URL).then((ok) => {
+        if (!ok) showToast('Não deu pra abrir o navegador', { type: 'error' });
+      });
       modalStar?.classList.remove('modal-open');
     });
   }
