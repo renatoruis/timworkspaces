@@ -1,6 +1,8 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer, systemPreferences, Notification, globalShortcut } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
+const os = require('os');
 
 app.setName('Tim Workspaces');
 if (process.platform === 'linux') process.title = 'Tim Workspaces';
@@ -22,30 +24,125 @@ const WEBVIEW_PERMISSION_ALLOW = new Set([
   'window-management'
 ]);
 
+// Darwin 24 = macOS 15 Sequoia+: system picker nativo trata tudo (callback não corre nessas versões)
+const SUPPORTS_SYSTEM_PICKER = process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 24;
+
+function notifyScreenShare(payload) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send('screen-share-status', payload);
+  }
+}
+
+async function ensureScreenPermission() {
+  if (process.platform !== 'darwin') return true;
+  const status = systemPreferences.getMediaAccessStatus('screen');
+  if (status === 'granted') return true;
+  // Tenta trigger do prompt nativo (macOS pode exibir diálogo ao chamar getSources)
+  await desktopCapturer.getSources({ types: ['screen'], thumbnailSize: { width: 1, height: 1 } }).catch(() => {});
+  const { response } = await dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    buttons: ['Abrir Definições', 'Cancelar'],
+    defaultId: 0,
+    title: 'Permissão de Gravação de Ecrã',
+    message: 'O Tim Workspaces precisa de permissão para gravar o ecrã.',
+    detail: 'Ative "Tim Workspaces" em Definições do Sistema → Privacidade e Segurança → Gravação de Ecrã e reinicie a app.'
+  });
+  if (response === 0) shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture');
+  return false;
+}
+
+function showSourcePicker(sources, request) {
+  return new Promise((resolve) => {
+    const win = new BrowserWindow({
+      parent: mainWindow,
+      modal: true,
+      frame: false,
+      width: 760,
+      height: 560,
+      resizable: false,
+      webPreferences: {
+        preload: path.join(__dirname, 'src', 'picker', 'picker-preload.js'),
+        contextIsolation: true,
+        nodeIntegration: false
+      }
+    });
+
+    const payload = sources.map((s) => ({
+      id: s.id,
+      name: s.name,
+      type: s.id.startsWith('screen:') ? 'screen' : 'window',
+      thumbnail: s.thumbnail.toDataURL(),
+      appIcon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null
+    }));
+
+    let settled = false;
+
+    const getHandler = () => ({ sources: payload, audioRequested: !!request.audioRequested, platform: process.platform });
+    ipcMain.handle('picker:get-sources', getHandler);
+
+    const onChoose = (_e, choice) => finish(choice);
+    const onCancel = () => finish(null);
+    ipcMain.once('picker:choose', onChoose);
+    ipcMain.once('picker:cancel', onCancel);
+    win.on('closed', () => finish(null));
+
+    function finish(result) {
+      if (settled) return;
+      settled = true;
+      try { ipcMain.removeHandler('picker:get-sources'); } catch {}
+      ipcMain.removeListener('picker:choose', onChoose);
+      ipcMain.removeListener('picker:cancel', onCancel);
+      if (!win.isDestroyed()) win.close();
+      resolve(result);
+    }
+
+    win.loadFile(path.join(__dirname, 'src', 'picker', 'picker.html'));
+  });
+}
+
 function attachWebviewDisplayMediaHandler(session) {
-  session.setDisplayMediaRequestHandler((request, callback) => {
-    desktopCapturer
-      .getSources({
-        types: ['screen', 'window'],
-        thumbnailSize: { width: 150, height: 150 },
-        fetchWindowIcons: true
-      })
-      .then((sources) => {
-        if (!sources.length) {
+  session.setDisplayMediaRequestHandler(async (request, callback) => {
+    try {
+      // macOS: verificar permissão antes de continuar
+      if (process.platform === 'darwin') {
+        const ok = await ensureScreenPermission();
+        if (!ok) {
           callback({});
+          notifyScreenShare({ state: 'permission-denied' });
           return;
         }
-        const video = sources.find((s) => s.id.startsWith('screen:')) || sources[0];
-        const streams = { video };
-        if (request.audioRequested && process.platform === 'win32') {
-          streams.audio = 'loopback';
-        }
-        callback(streams);
-      })
-      .catch(() => {
-        callback({});
+      }
+
+      const sources = await desktopCapturer.getSources({
+        types: ['screen', 'window'],
+        thumbnailSize: { width: 320, height: 200 },
+        fetchWindowIcons: true
       });
-  }, { useSystemPicker: true });
+
+      if (!sources.length) {
+        callback({});
+        return;
+      }
+
+      const choice = await showSourcePicker(sources, request);
+
+      if (!choice) {
+        callback({});
+        notifyScreenShare({ state: 'cancelled' });
+        return;
+      }
+
+      const video = sources.find((s) => s.id === choice.id);
+      const streams = { video };
+      if (request.audioRequested && choice.withAudio && process.platform === 'win32') {
+        streams.audio = 'loopback';
+      }
+      callback(streams);
+    } catch (err) {
+      callback({});
+      notifyScreenShare({ state: 'error', message: String(err) });
+    }
+  }, { useSystemPicker: SUPPORTS_SYSTEM_PICKER });
 }
 
 // --- Window bounds persistence ---
@@ -218,7 +315,12 @@ function createWindow() {
     }
   });
 
-  mainWindow.on('closed', () => { mainWindow = null; });
+  mainWindow.on('closed', () => {
+    clearTimeout(boundsDebounce);
+    mainWindow.removeAllListeners('resize');
+    mainWindow.removeAllListeners('move');
+    mainWindow = null;
+  });
 }
 
 // --- IPC handlers ---
@@ -295,8 +397,46 @@ ipcMain.handle('check-updates', async () => {
   }
 });
 
+// Icon cache — fetch remote icons once, store on disk, serve as data URLs
+const ICON_CACHE_DIR = path.join(app.getPath('userData'), 'icon-cache');
+const ICON_CACHE_TTL = 7 * 24 * 60 * 60 * 1000; // 7 days
+
+ipcMain.handle('get-cached-icon', async (_e, url) => {
+  if (typeof url !== 'string' || !url.startsWith('https://')) return null;
+  try {
+    await fs.promises.mkdir(ICON_CACHE_DIR, { recursive: true });
+    const hash = crypto.createHash('sha1').update(url).digest('hex');
+    const filePath = path.join(ICON_CACHE_DIR, hash);
+    const metaPath = filePath + '.meta';
+    // Check cache hit
+    try {
+      const stat = await fs.promises.stat(filePath);
+      if (Date.now() - stat.mtimeMs < ICON_CACHE_TTL) {
+        const buf = await fs.promises.readFile(filePath);
+        let mime = 'image/png';
+        try { mime = (await fs.promises.readFile(metaPath, 'utf8')).trim() || mime; } catch {}
+        return `data:${mime};base64,${buf.toString('base64')}`;
+      }
+    } catch {}
+    // Cache miss — fetch
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+    if (!res.ok) return null;
+    const mime = (res.headers.get('content-type') || 'image/png').split(';')[0].trim();
+    const buf = Buffer.from(await res.arrayBuffer());
+    await fs.promises.writeFile(filePath, buf);
+    await fs.promises.writeFile(metaPath, mime, 'utf8');
+    return `data:${mime};base64,${buf.toString('base64')}`;
+  } catch {
+    return null;
+  }
+});
+
 // Janela separada para login Google (evita bloqueio "browser may not be secure")
 const GOOGLE_AUTH_PARTITION = 'persist:timworkspaces';
+function sanitizePartition(p) {
+  if (typeof p === 'string' && /^persist:timworkspaces(-[a-zA-Z0-9_-]+)?$/.test(p)) return p;
+  return GOOGLE_AUTH_PARTITION;
+}
 function isGoogleAuthUrl(url) {
   if (!url || typeof url !== 'string') return false;
   try {
@@ -309,7 +449,7 @@ function isGoogleAuthUrl(url) {
 
 function openGoogleAuthWindow(url, partition) {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve(null);
-  const authPartition = (partition && typeof partition === 'string') ? partition : GOOGLE_AUTH_PARTITION;
+  const authPartition = sanitizePartition(partition);
   return new Promise((resolve) => {
     const authWin = new BrowserWindow({
       width: 480,
@@ -322,13 +462,15 @@ function openGoogleAuthWindow(url, partition) {
       }
     });
     authWin.setMenuBarVisibility(false);
-    authWin.loadURL(url);
+    try { authWin.loadURL(url); } catch { resolve(null); return; }
 
     let resolved = false;
     const onDone = (finalUrl) => {
       if (resolved) return;
       resolved = true;
-      if (!authWin.isDestroyed()) authWin.close();
+      authWin.webContents.removeAllListeners('did-navigate');
+      authWin.webContents.removeAllListeners('did-navigate-in-page');
+      if (!authWin.isDestroyed()) { try { authWin.close(); } catch {} }
       resolve(finalUrl || null);
     };
 
@@ -359,6 +501,70 @@ ipcMain.handle('toggle-fullscreen', () => {
   }
 });
 
+// 3.2 — badge de não-lidos
+ipcMain.handle('set-unread-count', (_e, count) => {
+  try {
+    const n = Math.max(0, parseInt(count, 10) || 0);
+    if (process.platform === 'darwin') {
+      if (app.dock) app.dock.setBadge(n > 0 ? (n > 99 ? '99+' : String(n)) : '');
+    } else if (process.platform === 'linux') {
+      if (typeof app.setBadgeCount === 'function') app.setBadgeCount(n);
+    } else if (process.platform === 'win32') {
+      if (mainWindow && !mainWindow.isDestroyed()) {
+        if (n > 0) {
+          const canvas = nativeImage.createEmpty();
+          // Gera overlay 16×16 com número via dataURL
+          const size = 16;
+          const label = n > 99 ? '99+' : String(n);
+          const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><circle cx="8" cy="8" r="8" fill="#e11d48"/><text x="8" y="12" text-anchor="middle" font-size="${label.length > 2 ? 5 : 9}" font-family="Arial" font-weight="bold" fill="#fff">${label}</text></svg>`;
+          const img = nativeImage.createFromDataURL('data:image/svg+xml;base64,' + Buffer.from(svg).toString('base64'));
+          mainWindow.setOverlayIcon(img, n + ' não lidas');
+        } else {
+          mainWindow.setOverlayIcon(null, '');
+        }
+      }
+    }
+    if (tray) {
+      const label = n > 0 ? `Tim Workspaces — ${n} não lidas` : 'Tim Workspaces';
+      tray.setToolTip(label);
+    }
+  } catch (err) {
+    // defensivo: não deixa o handler crashar
+  }
+});
+
+// 3.3 — notificações nativas do SO
+ipcMain.handle('show-native-notification', (_e, p) => {
+  try {
+    if (!Notification.isSupported()) return;
+    const n = new Notification({
+      title: p.title || p.serviceName || 'Tim Workspaces',
+      body: p.body || '',
+      silent: false
+    });
+    n.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isMinimized()) mainWindow.restore();
+        mainWindow.show();
+        mainWindow.focus();
+        mainWindow.webContents.send('focus-service', { serviceId: p.serviceId });
+      }
+    });
+    n.show();
+  } catch (err) {}
+});
+
+// 3.4 — auto-launch
+ipcMain.handle('get-auto-launch', () => {
+  try { return app.getLoginItemSettings().openAtLogin; } catch { return false; }
+});
+ipcMain.handle('set-auto-launch', (_e, enabled) => {
+  try {
+    app.setLoginItemSettings({ openAtLogin: !!enabled, openAsHidden: true });
+    return app.getLoginItemSettings().openAtLogin;
+  } catch { return false; }
+});
+
 app.on('web-contents-created', (_, webContents) => {
   if (webContents.getType?.() === 'webview') {
     const ses = webContents.session;
@@ -376,7 +582,7 @@ app.on('web-contents-created', (_, webContents) => {
         return { action: 'deny' };
       }
       if (isGoogleAuthUrl(url)) {
-        const partition = (webContents.session && typeof webContents.session.partition === 'string') ? webContents.session.partition : GOOGLE_AUTH_PARTITION;
+        const partition = sanitizePartition(webContents.session?.partition);
         openGoogleAuthWindow(url, partition).then((finalUrl) => {
           if (finalUrl && !webContents.isDestroyed()) {
             webContents.loadURL(finalUrl);
@@ -391,7 +597,45 @@ app.on('web-contents-created', (_, webContents) => {
   }
 });
 
+// 3.4 — Tray (todas as plataformas)
+function setupTray() {
+  try {
+    const iconPath = path.join(__dirname, 'src', 'assets', 'icone-fundo-escuro.png');
+    const trayIcon = nativeImage.createFromPath(iconPath);
+    tray = new Tray(trayIcon);
+    if (process.platform === 'darwin') tray.setIgnoreDoubleClickEvents(true);
+    tray.setToolTip('Tim Workspaces');
+    const trayMenu = Menu.buildFromTemplate([
+      {
+        label: 'Abrir Tim Workspaces',
+        click: () => {
+          if (mainWindow) { mainWindow.show(); mainWindow.focus(); }
+          else createWindow();
+        }
+      },
+      { type: 'separator' },
+      {
+        label: 'Sair',
+        click: () => { tray = null; app.quit(); }
+      }
+    ]);
+    tray.setContextMenu(trayMenu);
+    tray.on('click', () => {
+      if (mainWindow) {
+        if (mainWindow.isVisible()) mainWindow.focus();
+        else { mainWindow.show(); mainWindow.focus(); }
+      } else {
+        createWindow();
+      }
+    });
+  } catch (err) {
+    // ícone em falta ou plataforma sem suporte a tray — não quebra o arranque
+  }
+}
+
 app.whenReady().then(() => {
+  if (process.platform === 'win32') app.setAppUserModelId('com.timworkspaces.app');
+
   if (process.platform === 'darwin') {
     app.setAboutPanelOptions({
       applicationName: 'Tim Workspaces',
@@ -405,49 +649,21 @@ app.whenReady().then(() => {
 
   Menu.setApplicationMenu(buildMenu());
   createWindow();
+  setupTray();
 
-  if (process.platform !== 'darwin') {
-    const iconPath = path.join(__dirname, 'src', 'assets', 'icone-fundo-escuro.png');
-    const trayIcon = nativeImage.createFromPath(iconPath);
-    tray = new Tray(trayIcon);
-    tray.setToolTip('Tim Workspaces');
-    const trayMenu = Menu.buildFromTemplate([
-      {
-        label: 'Abrir Tim Workspaces',
-        click: () => {
-          if (mainWindow) {
-            mainWindow.show();
-            mainWindow.focus();
-          } else {
-            createWindow();
-          }
-        }
-      },
-      {
-        label: 'Sair',
-        click: () => {
-          tray = null;
-          app.quit();
-        }
-      }
-    ]);
-    tray.setContextMenu(trayMenu);
-    tray.on('click', () => {
-      if (mainWindow) {
-        if (mainWindow.isVisible()) {
-          mainWindow.focus();
-        } else {
-          mainWindow.show();
-          mainWindow.focus();
-        }
-      } else {
-        createWindow();
-      }
+  // 3.4 — atalho global toggle visibilidade
+  try {
+    globalShortcut.register('CommandOrControl+Shift+Space', () => {
+      if (!mainWindow) return;
+      if (mainWindow.isVisible() && mainWindow.isFocused()) mainWindow.hide();
+      else { mainWindow.show(); mainWindow.focus(); }
     });
-  }
+  } catch (err) {}
 });
 
 app.on('before-quit', () => { isQuitting = true; });
+
+app.on('will-quit', () => { globalShortcut.unregisterAll(); });
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit();

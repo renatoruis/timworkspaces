@@ -5,12 +5,23 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data: blob:;">
   <title>Tim Workspaces</title>
+  <script src="theme-boot.js"></script>
   <link rel="stylesheet" href="tailwind.output.css">
   <style>
+    /* 4.1 — Design tokens */
+    :root, [data-theme="dark"] { --bg:#15141b; --surface:#1d1b25; --surface-raised:#272433; --border:rgba(162,150,196,.13); --border-strong:rgba(162,150,196,.22); --text:#ecebf3; --text-muted:#a6a2b6; --text-dim:#787488; --accent:#8b7cf6; --accent-hover:#a594f9; --accent-soft:rgba(139,124,246,.16); --danger:#f0616d; --star:#f5b544; --toast-bg:rgba(29,27,37,.96); --radius:.875rem; --radius-lg:1.1rem; }
+    [data-theme="light"] { --bg:#f7f6fb; --surface:#ffffff; --surface-raised:#f1eff8; --border:rgba(96,84,140,.14); --border-strong:rgba(96,84,140,.22); --text:#1b1a22; --text-muted:#6a6678; --text-dim:#9a96a8; --accent:#6d5ae6; --accent-hover:#5b46d8; --accent-soft:rgba(109,90,230,.12); --danger:#f0616d; --star:#f5b544; --toast-bg:rgba(255,255,255,.96); --radius:.875rem; --radius-lg:1.1rem; }
+    /* Base background on <html> so theme-boot.js sets it before first paint */
+    html, body { background: #15141b; }
+    html[data-theme="light"], html[data-theme="light"] body { background: #f7f6fb; }
+    @media (prefers-color-scheme: light) {
+      html:not([data-theme]) { background: #fff; }
+    }
     [data-collapsed="true"] .service-btn { justify-content: center; padding: 0.5rem; }
     [data-collapsed="true"] .service-btn img { width: 1.5rem; height: 1.5rem; min-width: 1.5rem; min-height: 1.5rem; aspect-ratio: 1; object-fit: contain; }
     [data-collapsed="true"] .service-row { justify-content: center; }
     [data-collapsed="true"] .mute-all-btn { display: none; }
+    [data-collapsed="true"] .notification-badge { min-width:8px!important;height:8px!important;padding:0!important;font-size:0!important;top:-2px!important;right:-2px!important; }
     [data-collapsed="true"] .drag-handle { display: none; }
     [data-collapsed="true"] .service-more-btn { display: none; }
     [data-collapsed="true"] .add-btn-content { padding: 0.5rem; }
@@ -27,9 +38,11 @@
     [data-collapsed="true"] .add-btn-label { opacity: 0; transition: opacity 0.1s ease-in; }
     [data-collapsed="true"] .theme-toggle-btn { display: none; }
     .service-row.dragging { opacity: 0.5; }
-    .service-row.drag-over { border-radius: 8px; background: rgba(56, 189, 248, 0.15); }
+    .service-row.drag-over { border-radius: 12px; background: var(--accent-soft); }
+    .service-row.active-service { background: var(--accent-soft); box-shadow: inset 3px 0 0 0 var(--accent); }
     #modal, #modal-delete, #modal-star, #modal-coffee, #modal-update, #modal-menu { display: none; }
     #modal.modal-open, #modal-delete.modal-open, #modal-star.modal-open, #modal-coffee.modal-open, #modal-update.modal-open, #modal-menu.modal-open { display: flex !important; }
+    #modal-palette.modal-open { display: flex !important; }
     #modal.modal-open .modal-content { animation: modalSlideIn 0.2s ease-out; }
     @keyframes modalSlideIn {
       from { opacity: 0; transform: scale(0.96) translateY(-8px); }
@@ -38,9 +51,10 @@
     .preset-card { transition: transform 0.15s, box-shadow 0.15s; }
     .preset-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
     .preset-card:active { transform: translateY(0); }
-    #toast-overlay { position: fixed; top: 12px; right: 12px; z-index: 9999; pointer-events: none; display: flex; flex-direction: column; align-items: flex-end; }
-    #toast-card { opacity: 0; transform: translateX(16px) translateY(-4px); pointer-events: none; transition: opacity 0.18s ease-out, transform 0.18s ease-out; max-width: 320px; }
-    #toast-overlay.show #toast-card { opacity: 1; transform: translateX(0) translateY(0); }
+    #toast-overlay { position: fixed; top: 12px; right: 12px; z-index: 9999; pointer-events: none; display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+    .toast-card { opacity: 0; transform: translateX(16px) translateY(-4px); pointer-events: auto; transition: opacity 0.18s ease-out, transform 0.18s ease-out; max-width: 320px; }
+    .toast-card.toast-visible { opacity: 1; transform: translateX(0) translateY(0); }
+    .toast-card.toast-dismissing { opacity: 0; transform: translateX(16px) translateY(-4px); }
     #theme-transition-overlay { opacity: 0; pointer-events: none; transition: opacity 0.35s ease-out; }
     #theme-transition-overlay.active { opacity: 1; }
     .loading-bar-progress { animation: loadingSlide 1.5s ease-in-out infinite; }
@@ -59,7 +73,7 @@
     [data-theme="light"] #btn-add-service { color: #71717a !important; }
     [data-theme="light"] #btn-add-service:hover { color: #18181b !important; background-color: rgba(113,113,122,0.2) !important; }
     [data-theme="light"] .service-row:hover { background-color: rgba(113,113,122,0.15) !important; }
-    [data-theme="light"] .service-row.border-l-sky-500 { background-color: rgba(113,113,122,0.25) !important; }
+    [data-theme="light"] .service-row.active-service { background: var(--accent-soft) !important; }
     [data-theme="light"] .service-btn { color: #71717a !important; }
     [data-theme="light"] .service-btn:hover { color: #27272a !important; }
     [data-theme="light"] .service-btn.text-zinc-100 { color: #18181b !important; }
@@ -107,9 +121,9 @@
     [data-theme="light"] #modal-coffee #coffee-pix-key { background-color: rgba(212,212,216,0.6) !important; color: #18181b !important; }
     [data-theme="light"] #modal-coffee #coffee-copy-pix { background-color: rgba(212,212,216,0.6) !important; color: #52525b !important; }
     [data-theme="light"] #modal-coffee #coffee-copy-pix:hover { background-color: rgba(212,212,216,0.8) !important; }
-    [data-theme="light"] #toast-card { background-color: rgba(255,255,255,0.96) !important; color: #27272a !important; border-color: rgba(212,212,216,0.7) !important; }
-    [data-theme="light"] #update-available-banner { color: #0284c7 !important; background-color: rgba(14,165,233,0.15) !important; }
-    [data-theme="light"] #update-available-banner:hover { background-color: rgba(14,165,233,0.25) !important; }
+    [data-theme="light"] .toast-card { background-color: rgba(255,255,255,0.96) !important; color: #27272a !important; border-color: rgba(212,212,216,0.7) !important; }
+    [data-theme="light"] #update-available-banner { color: var(--accent) !important; background-color: var(--accent-soft) !important; }
+    [data-theme="light"] #update-available-banner:hover { background-color: rgba(109,90,230,.2) !important; }
     [data-theme="light"] #modal-update .relative { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.6) !important; }
     [data-theme="light"] #modal-update h3 { color: #18181b !important; }
     [data-theme="light"] #modal-update p, [data-theme="light"] #modal-update .text-zinc-400 { color: #71717a !important; }
@@ -117,16 +131,20 @@
     [data-theme="light"] #modal-menu h3 { color: #18181b !important; }
     [data-theme="light"] .menu-option-card { color: #52525b !important; border-color: rgba(212,212,216,0.5) !important; }
     [data-theme="light"] .menu-option-card:hover { background-color: rgba(212,212,216,0.4) !important; color: #18181b !important; }
+    [data-theme="light"] #modal-palette > div:not(#modal-palette-overlay) { background-color: #FFFFFF !important; border-color: rgba(212,212,216,0.7) !important; }
+    [data-theme="light"] #palette-input { color: #18181b !important; }
+    [data-theme="light"] #palette-list .palette-item { color: #52525b !important; }
+    [data-theme="light"] #palette-list .palette-item:hover, [data-theme="light"] #palette-list .palette-item[aria-selected="true"] { background-color: rgba(212,212,216,0.5) !important; color: #18181b !important; }
   </style>
 </head>
-<body class="text-zinc-200 h-screen flex flex-col font-sans antialiased" data-theme="dark" style="background-color:#212124">
+<body class="text-zinc-200 h-screen flex flex-col font-sans antialiased" data-theme="dark">
   <div class="flex flex-1 overflow-hidden">
-    <aside id="sidebar" class="w-56 backdrop-blur-sm border-r border-zinc-600/50 flex flex-col flex-shrink-0 transition-all duration-200 ease-out" data-collapsed="false" style="background-color:rgba(33,33,36,0.95)">
+    <aside id="sidebar" class="w-56 backdrop-blur-sm border-r border-zinc-600/50 flex flex-col flex-shrink-0 transition-all duration-200 ease-out" data-collapsed="false" style="background-color:rgba(29,27,37,0.85)">
       <div id="sidebar-logo-wrap" class="flex justify-center items-center py-3 px-2 border-b border-zinc-600/30">
         <img id="sidebar-logo" src="assets/logo-fundo-escuro.png" alt="Tim Workspaces" class="h-12 w-auto object-contain" onerror="this.style.display='none'">
         <img id="sidebar-icon" src="assets/icone-fundo-escuro.png" alt="" class="hidden w-10 h-10 object-contain flex-shrink-0" onerror="this.style.display='none'">
       </div>
-      <div id="update-available-banner" class="hidden px-2 py-1.5 text-center text-xs text-sky-400 bg-sky-500/10 border-b border-zinc-600/30 cursor-pointer hover:bg-sky-500/20 transition-colors" title="Clique para ver detalhes">
+      <div id="update-available-banner" class="hidden px-2 py-1.5 text-center text-xs border-b cursor-pointer transition-colors" style="color:var(--accent);background:var(--accent-soft);border-color:var(--border)" title="Clique para ver detalhes">
         Atualização disponível
       </div>
       <div class="flex items-center justify-between px-1 py-1">
@@ -148,15 +166,16 @@
       <input type="file" id="input-icon-file" accept="image/png,image/jpeg,image/webp,image/gif" class="hidden">
       <div id="sidebar-search-wrap" class="px-2 py-1.5 sidebar-search-wrap border-b border-zinc-600/30">
         <input type="text" id="sidebar-search" placeholder="Buscar serviços…" autocomplete="off"
-          class="w-full px-3 py-2 bg-zinc-700/40 border border-zinc-600/50 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60">
+          aria-label="Buscar serviços na barra lateral"
+          class="w-full px-3 py-2 bg-zinc-700/40 border border-zinc-600/50 rounded-lg text-zinc-100 placeholder-zinc-500 text-sm focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60">
       </div>
-      <div id="service-list" class="flex-1 overflow-y-auto p-1.5 flex flex-col gap-0.5 min-w-0"></div>
+      <div id="service-list" class="flex-1 overflow-y-auto p-2 flex flex-col gap-1 min-w-0"></div>
       <button type="button" id="btn-add-service" class="m-1.5 p-2 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-zinc-700/50 transition-colors flex items-center justify-center gap-2 add-btn-content">
         <span class="text-lg leading-none">+</span>
         <span class="add-btn-label truncate">Adicionar</span>
       </button>
     </aside>
-    <main id="content-area" class="flex-1 flex flex-col min-w-0 overflow-hidden" style="background-color:#212124"></main>
+    <main id="content-area" class="flex-1 flex flex-col min-w-0 overflow-hidden" style="background-color:var(--bg)"></main>
   </div>
 
   <div id="modal" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-title">
@@ -177,7 +196,8 @@
 
       <div id="tab-presets-content" class="flex-1 min-h-0 flex flex-col px-6 pb-6" data-tab-content="presets">
         <input type="text" id="preset-search" placeholder="Buscar serviços…" autocomplete="off"
-          class="w-full px-4 py-2.5 mb-4 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 text-sm">
+          aria-label="Buscar nos serviços prontos"
+          class="w-full px-4 py-2.5 mb-4 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 text-sm">
         <div id="preset-categories" class="flex-1 min-h-0 overflow-y-auto space-y-6"></div>
       </div>
 
@@ -187,13 +207,14 @@
             <div>
               <label for="input-name" class="block text-sm font-medium text-zinc-300 mb-2">Nome da aba</label>
               <input type="text" id="input-name" placeholder="Ex: WhatsApp pessoal" required autocomplete="off"
-                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 transition-shadow text-sm">
+                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 transition-shadow text-sm">
             </div>
             <div>
               <label for="input-url" class="block text-sm font-medium text-zinc-300 mb-2">URL</label>
               <input type="url" id="input-url" placeholder="https://" required autocomplete="url"
-                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-sky-500/40 focus:border-sky-500/60 transition-shadow text-sm font-mono">
-              <p id="url-error" class="mt-1.5 text-xs text-red-400 hidden"></p>
+                aria-describedby="url-error"
+                class="w-full px-4 py-3 bg-zinc-700/40 border border-zinc-600/50 rounded-xl text-zinc-100 placeholder-zinc-500 focus:ring-2 focus:ring-violet-500/40 focus:border-violet-500/60 transition-shadow text-sm font-mono">
+              <p id="url-error" class="mt-1.5 text-xs text-red-400 hidden" aria-live="polite"></p>
             </div>
             <div>
               <label class="block text-sm font-medium text-zinc-300 mb-2">Ícone</label>
@@ -211,23 +232,19 @@
           </div>
           <div class="flex gap-3 mt-6 flex-shrink-0">
             <button type="button" id="modal-cancel" class="flex-1 px-4 py-3 bg-zinc-700/40 hover:bg-zinc-600/50 text-zinc-300 rounded-xl text-sm font-medium transition-colors border border-zinc-600/50">Cancelar</button>
-            <button type="submit" id="modal-add-btn" class="flex-1 px-4 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-sky-500/20">Adicionar</button>
+            <button type="submit" id="modal-add-btn" class="flex-1 px-4 py-3 bg-violet-500 hover:bg-violet-400 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-violet-500/20">Adicionar</button>
           </div>
         </form>
       </div>
     </div>
   </div>
 
-  <div id="toast-overlay" role="status" aria-live="polite">
-    <div id="toast-card" class="px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium border border-zinc-600/40" style="background-color:rgba(33,33,36,0.96);color:#e4e4e7;backdrop-filter:blur(8px)">
-      <span id="toast-text"></span>
-    </div>
-  </div>
+  <div id="toast-overlay" role="status" aria-live="polite"></div>
   <div id="theme-transition-overlay" class="fixed inset-0 z-[70]" aria-hidden="true"></div>
 
   <div id="modal-menu" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-menu-title">
     <div id="modal-menu-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-menu-title" class="text-lg font-semibold text-zinc-100 mb-4">O que mais?</h3>
       <div class="flex flex-col gap-2">
         <button type="button" id="menu-option-star" class="menu-option-card w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100 rounded-xl border border-zinc-600/30 flex items-center gap-3 transition-colors">
@@ -243,6 +260,18 @@
           <span>Me paga um cafezinho?</span>
         </button>
       </div>
+      <div class="mt-4 pt-4 border-t border-zinc-600/40">
+        <label for="toast-level-select" class="block text-xs font-medium text-zinc-400 mb-1.5">Notificações da app</label>
+        <select id="toast-level-select" class="w-full px-3 py-2 rounded-xl text-sm text-zinc-300 border border-zinc-600/30 transition-colors" style="background-color:#2a2a2d">
+          <option value="normal">Todas</option>
+          <option value="erros">Só erros e confirmações</option>
+          <option value="silencioso">Só erros críticos</option>
+        </select>
+      </div>
+      <div class="mt-3 pt-3 border-t border-zinc-600/40 flex items-center justify-between gap-3">
+        <label for="auto-launch-toggle" class="text-xs font-medium text-zinc-400 cursor-pointer select-none">Iniciar com o sistema</label>
+        <input type="checkbox" id="auto-launch-toggle" class="w-4 h-4 accent-violet-500 cursor-pointer" />
+      </div>
       <button type="button" id="modal-menu-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
@@ -251,12 +280,12 @@
 
   <div id="modal-star" class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-star-title">
     <div id="modal-star-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-star-title" class="text-lg font-semibold text-zinc-100 mb-2">Curtiu?</h3>
       <p class="text-sm text-zinc-400 mb-4">Se tá te ajudando, manda uma estrelinha pro projeto no GitHub. É de graça e motiva pra caramba!</p>
       <div class="flex gap-2 justify-end">
         <button type="button" id="modal-star-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
-        <button type="button" id="modal-star-btn" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
+        <button type="button" id="modal-star-btn" class="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
           <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/></svg>
           Dar estrela
         </button>
@@ -266,7 +295,7 @@
 
   <div id="modal-coffee" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-coffee-title">
     <div id="modal-coffee-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:#212124">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-coffee-title" class="text-lg font-semibold text-zinc-100 mb-2">Me paga um cafezinho?</h3>
       <p class="text-sm text-zinc-400 mb-4">Se curtir o app, um PIX ajuda demais a manter isso rodando!</p>
       <div class="flex justify-center mb-4">
@@ -283,12 +312,12 @@
 
   <div id="modal-update" class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-update-title">
     <div id="modal-update-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:#212124">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-update-title" class="text-lg font-semibold text-zinc-100 mb-2">Tem novidade!</h3>
       <p id="modal-update-desc" class="text-sm text-zinc-400 mb-4">Tem a versão <strong id="modal-update-version" class="text-zinc-200">–</strong> pronta! Tu tá na <strong id="modal-update-current" class="text-zinc-200">–</strong>.</p>
       <div class="flex gap-2 justify-end">
         <button type="button" id="modal-update-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
-        <button type="button" id="modal-update-download" class="px-4 py-2 bg-sky-500 hover:bg-sky-600 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
+        <button type="button" id="modal-update-download" class="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4-4m0 0L8 8m4-4v12"/></svg>
           Baixar
         </button>
@@ -301,13 +330,29 @@
 
   <div id="modal-delete" class="fixed inset-0 z-50 flex items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modal-delete-title">
     <div id="modal-delete-overlay" class="absolute inset-0 bg-black/40 backdrop-blur-[2px]"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] shadow-2xl" style="background-color:#212124">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-delete-title" class="text-lg font-semibold text-zinc-100 mb-2">Remover serviço</h3>
       <p class="text-sm text-zinc-400 mb-4">Tem certeza que deseja remover <strong id="delete-service-name" class="text-zinc-200"></strong>?</p>
       <div class="flex gap-2 justify-end">
         <button type="button" id="modal-delete-cancel" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Cancelar</button>
         <button type="button" id="modal-delete-confirm" class="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors">Remover</button>
       </div>
+    </div>
+  </div>
+
+  <!-- 4.3 — Command Palette -->
+  <div id="modal-palette" class="fixed inset-0 z-[60] hidden items-start justify-center pt-[15vh] p-4" role="dialog" aria-modal="true" aria-label="Paleta de comandos">
+    <div id="modal-palette-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
+    <div class="relative w-full max-w-xl bg-zinc-800 border border-zinc-600/60 rounded-2xl shadow-2xl overflow-hidden flex flex-col" style="max-height:60vh">
+      <div class="flex items-center gap-2 px-4 py-3 border-b border-zinc-600/40">
+        <svg class="w-4 h-4 text-zinc-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input type="text" id="palette-input" placeholder="Buscar serviços ou ações…" autocomplete="off" spellcheck="false"
+          aria-label="Buscar na paleta de comandos"
+          class="flex-1 bg-transparent text-zinc-100 placeholder-zinc-500 text-sm outline-none">
+        <kbd class="hidden sm:flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] text-zinc-500 bg-zinc-700/60 rounded border border-zinc-600/50 font-mono">Esc</kbd>
+      </div>
+      <ul id="palette-list" role="listbox" class="overflow-y-auto flex-1 py-1"></ul>
+      <div id="palette-empty" class="hidden px-4 py-8 text-center text-sm text-zinc-500">Nenhum resultado</div>
     </div>
   </div>
 

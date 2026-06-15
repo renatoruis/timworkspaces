@@ -14,21 +14,6 @@ const LAST_SEEN_UPDATE_KEY = 'timworkspaces-last-seen-update';
 const CHECK_THROTTLE_MS = 24 * 60 * 60 * 1000;
 const FIRST_VISIT_KEY = 'timworkspaces-first-visit-done';
 
-const THEME_TOASTS_LIGHT = [
-  'Acendeu a luz, meus olhos vão queimar agora!',
-  'Quem acendeu o sol?',
-];
-const THEME_TOASTS_DARK = [
-  'Gosta do escurinho né? É um dev raiz',
-  'Mode hacker ativado',
-  'Agora sim, menos cansaço na vista'
-];
-const MUTE_TOASTS_SILENCE = ['Shh... ninguém te perturba mais', 'Silêncio total, modo foco ligado'];
-const MUTE_TOASTS_ACTIVE = ['As notificações voltaram, cuidado!', 'Voltou a bagunça', 'Agora aguenta as notificações!'];
-const ADD_SERVICE_TOASTS = ['Boa! Mais um na coleção', 'Adicionado com sucesso, chefia', 'Pronto, tá na lista'];
-const SIDEBAR_COLLAPSE_TOASTS = ['Minimalista MODE=ON', 'Mais espaço pra trabalhar'];
-const SIDEBAR_EXPAND_TOASTS = ['Agora da pra ver melhor :)'];
-const UPDATE_OK_TOASTS = ['Tá tudo em dia!', 'Nada de novo por aqui', 'Tá atualizadinho!'];
 function formatUpdateAvailableToast(version) {
   const msgs = ['Nova versão %s disponível! Atualiza aí', 'Tem a %s pronta! Vai lá pegar', 'Saiu a %s, corre lá'];
   return pick(msgs).replace('%s', version);
@@ -38,14 +23,15 @@ const WELCOME_TOASTS = [
   'E aí! Bem-vindo ao Tim Workspaces. Espero que ajude nas suas multitarefas caóticas',
   'Fala! Bem-vindo. Aqui tu junta tudo num lugar só'
 ];
-const TAB_SWITCH_TOASTS = ['Quantas abas tu tem abertas no Chrome?', 'Trabalhando em várias frentes, hein'];
-const TAB_SWITCH_INTERVAL = 5;
+const TOAST_LEVEL_KEY = 'timworkspaces-toast-level';
+const ACTIVE_SERVICE_KEY = 'timworkspaces-active-service';
+const ZOOM_KEY = 'timworkspaces-zoom';
+const CACHE_MAX_KEY = 'timworkspaces-cache-max';
 
-const WEBVIEW_CACHE_MAX = 10;
+let WEBVIEW_CACHE_MAX = (() => { try { const v = parseInt(localStorage.getItem('timworkspaces-cache-max'), 10); return (v > 0 && v <= 50) ? v : 10; } catch { return 10; } })();
 const webviewAccessOrder = []; // tracks access order, most recent last
 
 let services = [];
-let tabSwitchCount = 0;
 let activeServiceId = null;
 let activeWebview = null;
 let sidebarCollapsed = false;
@@ -57,6 +43,25 @@ let updateInfo = null; // { version, url } quando há nova versão
 const notificationCounts = new Map(); // serviceId -> number
 const zoomLevels = new Map(); // serviceId -> zoomFactor
 let presetsLoaded = false;
+
+function setActiveService(id) {
+  activeServiceId = id;
+  try { localStorage.setItem(ACTIVE_SERVICE_KEY, id || ''); } catch {}
+}
+
+function loadZoomLevels() {
+  try {
+    const raw = localStorage.getItem(ZOOM_KEY);
+    if (raw) {
+      const obj = JSON.parse(raw);
+      Object.entries(obj).forEach(([k, v]) => { if (typeof v === 'number') zoomLevels.set(k, v); });
+    }
+  } catch {}
+}
+
+function saveZoomLevels() {
+  try { localStorage.setItem(ZOOM_KEY, JSON.stringify(Object.fromEntries(zoomLevels))); } catch {}
+}
 
 const MUTE_SCRIPT = `
 (function(){
@@ -179,7 +184,6 @@ function toggleTheme() {
     localStorage.setItem(THEME_KEY, next);
     updateThemeIcon(next);
     updateSidebarLogo(next);
-    showBigToast(pick(toLight ? THEME_TOASTS_LIGHT : THEME_TOASTS_DARK), 2800);
   });
 }
 
@@ -297,7 +301,7 @@ function toggleDisableService(id) {
     if (orderIdx !== -1) webviewAccessOrder.splice(orderIdx, 1);
     // If this was the active service, switch to the first enabled one
     if (activeServiceId === id) {
-      activeServiceId = services.find(s => !s.disabled)?.id ?? id;
+      setActiveService(services.find(s => !s.disabled)?.id ?? id);
     }
     showToast('Serviço desativado — memória liberada');
   } else {
@@ -310,7 +314,6 @@ function toggleMuteAll() {
   muteAll = !muteAll;
   localStorage.setItem(MUTE_ALL_KEY, String(muteAll));
   updateMuteAllButton();
-  showToast(pick(muteAll ? MUTE_TOASTS_SILENCE : MUTE_TOASTS_ACTIVE));
 }
 
 function updateMuteAllButton() {
@@ -320,10 +323,10 @@ function updateMuteAllButton() {
   btn.title = muteAll ? 'Ativar notificações' : 'Silenciar todas as notificações';
   if (muteAll) {
     icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/>';
-    btn.classList.add('text-sky-400');
+    btn.classList.add('text-violet-400');
   } else {
     icon.innerHTML = '<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>';
-    btn.classList.remove('text-sky-400');
+    btn.classList.remove('text-violet-400');
   }
 }
 
@@ -360,8 +363,8 @@ function updateSidebarActiveState() {
   if (!serviceListEl) return;
   serviceListEl.querySelectorAll('.service-row').forEach(row => {
     const isActive = row.dataset.id === activeServiceId;
-    row.className = 'service-row group flex items-center gap-2 rounded-lg ' +
-      (isActive ? 'bg-zinc-700/50 border-l-2 border-l-sky-500' : 'hover:bg-zinc-700/30');
+    row.className = 'service-row group flex items-center gap-2 rounded-xl ' +
+      (isActive ? 'active-service' : 'hover:bg-zinc-700/30');
     const btn = row.querySelector('.service-btn');
     if (btn) {
       btn.className = 'service-btn flex-1 flex items-center gap-2 min-w-0 py-2 px-2 rounded-lg text-left transition-colors ' +
@@ -384,8 +387,15 @@ function saveServices() {
 function removeFromWebviewCache(serviceId) {
   const cached = webviewCache.get(serviceId);
   if (!cached) return;
+  cached.abortController?.abort();
+  cached.cancelLoadingTimer?.();
+  try { cached.webview?.stop?.(); } catch {}
+  if (cached.webview?.isConnected) { try { cached.webview.src = 'about:blank'; } catch {} }
   cached.container?.remove?.();
   webviewCache.delete(serviceId);
+  if (activeWebview === cached.webview) activeWebview = null;
+  notificationCounts.delete(serviceId);
+  pushTotalUnread();
 }
 
 function updateWebviewLRU(serviceId) {
@@ -404,6 +414,12 @@ function escapeHtml(str) {
   return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
+function pushTotalUnread() {
+  let total = 0;
+  notificationCounts.forEach(v => { total += (v || 0); });
+  window.electronAPI?.setUnreadCount?.(total);
+}
+
 function updateServiceBadge(serviceId, count) {
   notificationCounts.set(serviceId, count);
   if (!serviceListEl) return;
@@ -416,34 +432,95 @@ function updateServiceBadge(serviceId, count) {
     if (!badge) {
       badge = document.createElement('span');
       badge.className = 'notification-badge';
-      badge.style.cssText = 'position:absolute;top:-5px;right:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:#0ea5e9;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 1.5px #212124;pointer-events:none;z-index:10;white-space:nowrap;';
+      badge.style.cssText = 'position:absolute;top:-5px;right:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 1.5px var(--bg);pointer-events:none;z-index:10;white-space:nowrap;';
       iconWrap.appendChild(badge);
     }
     badge.textContent = count > 99 ? '99+' : String(count);
   } else if (badge) {
     badge.remove();
   }
+  pushTotalUnread();
 }
 
 function pick(arr) {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-function showToast(msg, duration = 1800) {
-  const overlay = document.getElementById('toast-overlay');
-  const text = document.getElementById('toast-text');
-  if (!overlay || !text) return;
-  text.textContent = typeof msg === 'string' ? msg : 'Serviço adicionado';
-  overlay.classList.add('show');
-  clearTimeout(showToast._tid);
-  showToast._tid = setTimeout(() => {
-    overlay.classList.remove('show');
-    text.textContent = '';
-  }, duration);
+function getToastLevel() {
+  try { return localStorage.getItem(TOAST_LEVEL_KEY) || 'normal'; } catch { return 'normal'; }
 }
 
-function showBigToast(msg, duration = 2400) {
-  showToast(msg, duration);
+function createToastNode(msg, type, closable) {
+  const node = document.createElement('div');
+  node.className = 'toast-card px-4 py-2.5 rounded-xl shadow-lg text-sm font-medium border border-zinc-600/40 flex items-center gap-2';
+  node.style.cssText = 'background-color:var(--toast-bg);color:var(--text);backdrop-filter:blur(8px)';
+  if (type === 'error') node.setAttribute('role', 'alert');
+  const span = document.createElement('span');
+  span.textContent = typeof msg === 'string' ? msg : '';
+  node.appendChild(span);
+  if (closable) {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.setAttribute('aria-label', 'Fechar');
+    btn.style.cssText = 'margin-left:4px;opacity:0.6;cursor:pointer;background:none;border:none;color:inherit;font-size:1rem;line-height:1;padding:0 2px';
+    btn.textContent = '×';
+    btn.addEventListener('click', () => dismissToast(node));
+    node.appendChild(btn);
+  }
+  return node;
+}
+
+function dismissToast(node) {
+  if (!node || node._dismissing) return;
+  node._dismissing = true;
+  clearTimeout(node._tid);
+  node.classList.remove('toast-visible');
+  node.classList.add('toast-dismissing');
+  setTimeout(() => { if (node.parentNode) node.parentNode.removeChild(node); }, 200);
+}
+
+function showToast(msg, opts) {
+  // opts can be a number (legacy duration) or an object
+  if (typeof opts === 'number') opts = { duration: opts };
+  const { type = 'info', closable: explicitClosable, duration: explicitDuration } = opts || {};
+
+  const level = getToastLevel();
+  if (level === 'silencioso' && type !== 'error') return;
+  if (level === 'erros' && type === 'info') return;
+
+  const defaults = { info: 2000, success: 2500, error: 6000 };
+  const duration = explicitDuration != null ? explicitDuration : defaults[type] || 2000;
+  const closable = explicitClosable != null ? explicitClosable : type === 'error';
+
+  const overlay = document.getElementById('toast-overlay');
+  if (!overlay) return;
+
+  // Max 3 visible: remove oldest
+  const existing = overlay.querySelectorAll('.toast-card');
+  if (existing.length >= 3) dismissToast(existing[0]);
+
+  const node = createToastNode(msg, type, closable);
+  overlay.appendChild(node);
+  // Trigger transition
+  requestAnimationFrame(() => requestAnimationFrame(() => node.classList.add('toast-visible')));
+
+  let remaining = duration;
+  let startedAt;
+
+  function startTimer(ms) {
+    node._tid = setTimeout(() => dismissToast(node), ms);
+    startedAt = Date.now();
+  }
+  node.addEventListener('mouseenter', () => {
+    clearTimeout(node._tid);
+    remaining -= (Date.now() - startedAt);
+  });
+  node.addEventListener('mouseleave', () => startTimer(Math.max(remaining, 500)));
+  startTimer(remaining);
+}
+
+function showBigToast(msg, duration) {
+  showToast(msg, { duration: duration || 2400 });
 }
 
 function runThemeTransition(toLight, onDone) {
@@ -492,7 +569,7 @@ async function checkForUpdates(showModalIfNew = false) {
     try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch {}
     if (result.available && result.version && result.url) {
       updateInfo = { version: result.version, url: result.url };
-      showToast(formatUpdateAvailableToast(result.version));
+      showToast(formatUpdateAvailableToast(result.version), { type: 'success', duration: 4000 });
       showUpdateBanner(true);
       const lastSeen = localStorage.getItem(LAST_SEEN_UPDATE_KEY);
       if (showModalIfNew || lastSeen !== result.version) {
@@ -501,10 +578,9 @@ async function checkForUpdates(showModalIfNew = false) {
     } else {
       updateInfo = null;
       showUpdateBanner(false);
-      if (showModalIfNew) showToast(pick(UPDATE_OK_TOASTS));
     }
   } catch {
-    if (showModalIfNew) showToast(pick(UPDATE_ERROR_TOASTS));
+    if (showModalIfNew) showToast(pick(UPDATE_ERROR_TOASTS), { type: 'error' });
   }
 }
 
@@ -518,10 +594,9 @@ function addService(name, url, customIcon = null) {
   };
   services.push(service);
   saveServices();
-  activeServiceId = service.id;
+  setActiveService(service.id);
   render();
   closeModal();
-  showToast(pick(ADD_SERVICE_TOASTS));
 }
 
 function updateService(id, name, url, customIcon = undefined) {
@@ -558,9 +633,8 @@ function duplicateService(service) {
   };
   services.push(copy);
   saveServices();
-  activeServiceId = copy.id;
+  setActiveService(copy.id);
   render();
-  showToast(pick(ADD_SERVICE_TOASTS));
 }
 
 let pendingDeleteId = null;
@@ -589,7 +663,7 @@ function confirmRemoveService() {
   removeFromWebviewCache(id);
   saveServices();
   if (activeServiceId === id) {
-    activeServiceId = services[0]?.id ?? null;
+    setActiveService(services[0]?.id ?? null);
   }
   closeDeleteModal();
   render();
@@ -703,12 +777,17 @@ function switchModalTab(tabId) {
 }
 
 function openModal(options = {}) {
-  const { clear = true, editService = null } = options;
+  const { clear = true, editService = null, presetQuick = null } = options;
   editingServiceId = editService?.id ?? null;
   pendingModalCustomIcon = editService?.customIcon ?? null;
   if (editService) {
     if (inputNameEl) inputNameEl.value = editService.name;
     if (inputUrlEl) inputUrlEl.value = editService.url;
+  } else if (presetQuick) {
+    // Quick-preset chip: switch to custom tab and pre-fill
+    if (inputNameEl) inputNameEl.value = presetQuick.name;
+    if (inputUrlEl) inputUrlEl.value = presetQuick.url;
+    switchModalTab('custom');
   } else if (clear) {
     if (inputNameEl) inputNameEl.value = '';
     if (inputUrlEl) inputUrlEl.value = '';
@@ -716,7 +795,7 @@ function openModal(options = {}) {
   showUrlError('');
   updateModalForMode();
   updateModalIconPreview();
-  if (!editingServiceId) {
+  if (!editingServiceId && !presetQuick) {
     ensurePresetsLoaded().then(() => {
       const searchEl = document.getElementById('preset-search');
       renderPresetCategories(searchEl?.value || '');
@@ -724,7 +803,7 @@ function openModal(options = {}) {
   }
   if (modalEl) modalEl.classList.add('modal-open');
   setTimeout(() => {
-    if (editingServiceId) (inputNameEl || inputUrlEl)?.focus();
+    if (editingServiceId || presetQuick) (inputNameEl || inputUrlEl)?.focus();
     else document.getElementById('preset-search')?.focus();
   }, 50);
 }
@@ -781,8 +860,8 @@ function renderSidebar() {
     const isDisabled = !!service.disabled;
 
     const row = document.createElement('div');
-    row.className = 'service-row group flex items-center gap-2 rounded-lg ' +
-      (isActive ? 'bg-zinc-700/50 border-l-2 border-l-sky-500' : 'hover:bg-zinc-700/30') +
+    row.className = 'service-row group flex items-center gap-2 rounded-xl ' +
+      (isActive ? 'active-service' : 'hover:bg-zinc-700/30') +
       (isDisabled ? ' opacity-50' : '');
     row.dataset.id = service.id;
     row.dataset.index = String(services.indexOf(service));
@@ -822,11 +901,7 @@ function renderSidebar() {
       (isActive ? 'text-zinc-100' : 'text-zinc-400 hover:text-zinc-200');
     btn.addEventListener('click', () => {
       if (activeServiceId === service.id) return;
-      tabSwitchCount++;
-      if (tabSwitchCount % TAB_SWITCH_INTERVAL === 0) {
-        showToast(pick(TAB_SWITCH_TOASTS));
-      }
-      activeServiceId = service.id;
+      setActiveService(service.id);
       updateSidebarActiveState();
       renderContentArea();
       updateMuteAllButton();
@@ -839,6 +914,12 @@ function renderSidebar() {
     img.alt = '';
     img.className = 'w-6 h-6 rounded bg-zinc-600/50 service-icon-img block';
     img.onerror = () => { img.src = fallbackIcon; };
+    // Progressive: upgrade to cached data URL when available
+    if (iconUrl && window.electronAPI?.getCachedIcon) {
+      window.electronAPI.getCachedIcon(iconUrl).then(dataUrl => {
+        if (dataUrl && img.isConnected) img.src = dataUrl;
+      }).catch(() => {});
+    }
 
     // Icon wrapper — badge / disabled overlay on top-right corner
     const iconWrap = document.createElement('div');
@@ -847,7 +928,7 @@ function renderSidebar() {
     iconWrap.appendChild(img);
     if (isDisabled) {
       const pauseOverlay = document.createElement('span');
-      pauseOverlay.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:#71717a;display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px #212124;';
+      pauseOverlay.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--text-muted,#71717a);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px var(--bg,#212124);';
       pauseOverlay.innerHTML = '<svg width="6" height="6" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
       iconWrap.appendChild(pauseOverlay);
     }
@@ -855,7 +936,7 @@ function renderSidebar() {
     if (pendingCount > 0) {
       const badge = document.createElement('span');
       badge.className = 'notification-badge';
-      badge.style.cssText = 'position:absolute;top:-5px;right:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:#0ea5e9;color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 1.5px #212124;pointer-events:none;z-index:10;white-space:nowrap;';
+      badge.style.cssText = 'position:absolute;top:-5px;right:-5px;min-width:14px;height:14px;padding:0 3px;border-radius:999px;background:var(--accent);color:#fff;font-size:9px;font-weight:700;display:flex;align-items:center;justify-content:center;line-height:1;box-shadow:0 0 0 1.5px var(--bg);pointer-events:none;z-index:10;white-space:nowrap;';
       badge.textContent = pendingCount > 99 ? '99+' : String(pendingCount);
       iconWrap.appendChild(badge);
     }
@@ -912,7 +993,7 @@ function renderSidebar() {
     }
     const muteItem = document.createElement('button');
     muteItem.type = 'button';
-    muteItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (muted ? 'text-sky-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
+    muteItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (muted ? 'text-violet-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
     muteItem.innerHTML = (muted ? '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2"/></svg> Ativar notificações' : '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg> Silenciar notificações');
     muteItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); toggleMuteService(service.id); });
     dropdown.appendChild(muteItem);
@@ -933,7 +1014,7 @@ function renderSidebar() {
     dropdown.appendChild(duplicateItem);
     const disableItem = document.createElement('button');
     disableItem.type = 'button';
-    disableItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (isDisabled ? 'text-sky-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
+    disableItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (isDisabled ? 'text-violet-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
     disableItem.innerHTML = isDisabled
       ? '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Reativar serviço'
       : '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Desativar serviço';
@@ -957,6 +1038,16 @@ function renderSidebar() {
   applySidebarCollapsed();
 }
 
+// Filter sidebar rows in-place without full re-render
+function filterSidebar(term) {
+  if (!serviceListEl) return;
+  const t = term.trim().toLowerCase();
+  serviceListEl.querySelectorAll('.service-row[data-id]').forEach(row => {
+    const name = (row.title || '').toLowerCase();
+    row.classList.toggle('hidden', t.length > 0 && !name.includes(t));
+  });
+}
+
 // 5 & 6. Renderizar content-area (webview ou mensagem)
 function renderContentArea() {
   if (!contentAreaEl) return;
@@ -969,15 +1060,15 @@ function renderContentArea() {
   const hasActiveService = services.length > 0;
   const activeCandidate = services.find(s => s.id === activeServiceId);
   const active = hasActiveService ? (activeCandidate || services[0]) : null;
-  if (active) activeServiceId = active.id;
+  if (active) setActiveService(active.id);
   const activeIsDisabled = active?.disabled === true;
 
-  function injectMuteIfNeeded(wv, serviceId) {
-    if (!isServiceMuted(serviceId)) return;
-    wv.addEventListener('did-finish-load', function onLoad() {
-      wv.removeEventListener('did-finish-load', onLoad);
-      wv.executeJavaScript(MUTE_SCRIPT).catch(() => {});
-    }, { once: true });
+  function injectMuteIfNeeded(_wv, _serviceId) {
+    // O MUTE_SCRIPT (que substituía window.Notification) foi desativado porque
+    // o webview-preload.js já intercepta todas as notificações via shim e o
+    // listener ipc-message filtra serviços mutados antes de chamar showNativeNotification.
+    // Injetar o MUTE_SCRIPT sobrescreveria o shim e quebraria o encaminhamento.
+    // A UI de mute (mutedServices / muteAll / toggleMuteAll) continua funcional.
   }
 
   function injectLightTheme(wv) {
@@ -998,7 +1089,7 @@ function renderContentArea() {
   function createLoadingBar() {
     const wrap = document.createElement('div');
     wrap.className = 'absolute top-0 left-0 right-0 h-0.5 overflow-hidden z-20 pointer-events-none hidden';
-    wrap.innerHTML = '<div class="h-full w-1/3 bg-sky-500 loading-bar-progress rounded-r"></div>';
+    wrap.innerHTML = '<div class="h-full w-1/3 bg-violet-500 loading-bar-progress rounded-r"></div>';
     return wrap;
   }
 
@@ -1020,6 +1111,9 @@ function renderContentArea() {
       return cached;
     }
 
+    const abortController = new AbortController();
+    const signal = abortController.signal;
+
     const currentUrl = service.url ?? getDefaultUrl();
     const loadingBar = createLoadingBar();
     const webview = document.createElement('webview');
@@ -1028,7 +1122,11 @@ function renderContentArea() {
     webview.useragent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
     webview.className = 'w-full h-full border-0';
     webview.allowpopups = 'allowpopups';
-    webview.webpreferences = 'nativeWindowOpen=yes';
+    webview.webpreferences = 'nativeWindowOpen=yes,contextIsolation=no';
+    // 3.3 — preload dedicado para substituir window.Notification (deve ser definido antes de append ao DOM)
+    if (window.electronAPI?.webviewPreloadPath) {
+      webview.preload = window.electronAPI.webviewPreloadPath;
+    }
     injectMuteIfNeeded(webview, serviceId);
     injectLightTheme(webview);
     webview.src = currentUrl;
@@ -1038,7 +1136,21 @@ function renderContentArea() {
       const match = title.match(/\((\d+)\)/);
       const count = match ? parseInt(match[1], 10) : 0;
       updateServiceBadge(serviceId, count);
-    });
+    }, { signal });
+
+    // 3.3 — recebe notificações interceptadas pelo webview-preload e encaminha como notificação nativa
+    webview.addEventListener('ipc-message', (e) => {
+      if (e.channel !== 'web-notification') return;
+      if (isServiceMuted(serviceId) || muteAll) return;
+      const d = (e.args && e.args[0]) || {};
+      window.electronAPI?.showNativeNotification?.({
+        serviceId,
+        serviceName: service.name,
+        title: d.title || service.name,
+        body: d.body || '',
+        icon: d.icon || service.iconUrl || ''
+      });
+    }, { signal });
 
     webview.addEventListener('will-navigate', async (e) => {
       const targetUrl = e?.url;
@@ -1056,7 +1168,7 @@ function renderContentArea() {
       } finally {
         loadingBar.classList.add('hidden');
       }
-    });
+    }, { signal });
 
     let loadingTimeout = null;
     function showLoadingBar() {
@@ -1072,10 +1184,16 @@ function renderContentArea() {
       if (loadingTimeout) { clearTimeout(loadingTimeout); loadingTimeout = null; }
       loadingBar.classList.add('hidden');
     }
-    webview.addEventListener('did-start-loading', showLoadingBar);
-    webview.addEventListener('did-finish-load', hideLoadingBar);
-    webview.addEventListener('did-stop-loading', hideLoadingBar);
-    webview.addEventListener('did-fail-load', hideLoadingBar);
+    const cancelLoadingTimer = () => {
+      if (loadingTimeout) { clearTimeout(loadingTimeout); loadingTimeout = null; }
+    };
+    webview.addEventListener('did-start-loading', showLoadingBar, { signal });
+    webview.addEventListener('did-finish-load', hideLoadingBar, { signal });
+    webview.addEventListener('did-stop-loading', hideLoadingBar, { signal });
+    webview.addEventListener('did-fail-load', hideLoadingBar, { signal });
+
+    webview.addEventListener('did-navigate', updateNavButtons, { signal });
+    webview.addEventListener('did-navigate-in-page', updateNavButtons, { signal });
 
     const container = document.createElement('div');
     container.className = 'absolute inset-0 flex flex-col min-h-0';
@@ -1086,7 +1204,7 @@ function renderContentArea() {
     webviewWrap.appendChild(webview);
     container.appendChild(webviewWrap);
 
-    cached = { container, webview, loadingBar };
+    cached = { container, webview, loadingBar, abortController, cancelLoadingTimer };
     webviewCache.set(serviceId, cached);
     updateWebviewLRU(serviceId);
     return cached;
@@ -1094,6 +1212,12 @@ function renderContentArea() {
 
   if (!hasActiveService) {
     const theme = document.body.dataset.theme || 'dark';
+    const QUICK_PRESETS = [
+      { name: 'WhatsApp', url: 'https://web.whatsapp.com', icon: 'https://icons.duckduckgo.com/ip3/web.whatsapp.com.ico' },
+      { name: 'Gmail',    url: 'https://mail.google.com',  icon: 'https://cdn.simpleicons.org/gmail' },
+      { name: 'Slack',    url: 'https://app.slack.com',    icon: 'https://icons.duckduckgo.com/ip3/app.slack.com.ico' },
+      { name: 'Notion',   url: 'https://www.notion.so',    icon: 'https://icons.duckduckgo.com/ip3/www.notion.so.ico' },
+    ];
     contentAreaEl.innerHTML = `
       <div class="flex-1 flex flex-col items-center justify-center gap-6 p-8 text-center h-full">
         <img src="assets/${theme === 'light' ? 'icone-fundo-claro' : 'icone-fundo-escuro'}.png" alt="" class="w-24 h-24 opacity-25">
@@ -1101,11 +1225,23 @@ function renderContentArea() {
           <h2 class="text-xl font-semibold text-zinc-400 mb-2">Nenhum serviço adicionado</h2>
           <p class="text-sm text-zinc-500 max-w-xs">Adicione WhatsApp, Gmail, Slack, Notion e outros para acessar tudo em um lugar só.</p>
         </div>
-        <button type="button" id="empty-state-add-btn" class="px-6 py-3 bg-sky-500 hover:bg-sky-600 text-white rounded-xl font-medium text-sm transition-colors shadow-lg shadow-sky-500/20">
+        <div class="flex flex-wrap gap-2 justify-center" id="empty-state-chips"></div>
+        <button type="button" id="empty-state-add-btn" class="px-6 py-3 bg-violet-500 hover:bg-violet-600 text-white rounded-xl font-medium text-sm transition-colors shadow-lg shadow-violet-500/20">
           + Adicionar serviço
         </button>
       </div>
     `;
+    const chipsWrap = contentAreaEl.querySelector('#empty-state-chips');
+    if (chipsWrap) {
+      QUICK_PRESETS.forEach(p => {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm text-zinc-300 hover:text-zinc-100 bg-zinc-700/40 hover:bg-zinc-600/50 border border-zinc-600/30 transition-colors';
+        btn.innerHTML = `<img src="${p.icon}" alt="" class="w-4 h-4 rounded" onerror="this.style.display='none'">${escapeHtml(p.name)}`;
+        btn.addEventListener('click', () => openModal({ presetQuick: p }));
+        chipsWrap.appendChild(btn);
+      });
+    }
     contentAreaEl.querySelector('#empty-state-add-btn')?.addEventListener('click', () => openModal());
     activeWebview = null;
     return;
@@ -1121,7 +1257,7 @@ function renderContentArea() {
           <h2 class="text-lg font-semibold text-zinc-400 mb-1">${active.name} está desativado</h2>
           <p class="text-sm text-zinc-500 max-w-xs">Reative o serviço para carregar o conteúdo e liberar a memória quando não precisar.</p>
         </div>
-        <button type="button" id="content-reenable-btn" class="px-5 py-2.5 bg-sky-500 hover:bg-sky-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-sky-500/20">
+        <button type="button" id="content-reenable-btn" class="px-5 py-2.5 bg-violet-500 hover:bg-violet-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-violet-500/20">
           Reativar ${active.name}
         </button>
       </div>
@@ -1145,7 +1281,7 @@ function renderContentArea() {
       <button type="button" id="toolbar-forward" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors disabled:opacity-30 disabled:cursor-not-allowed" title="Avançar" disabled>
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </button>
-      <div class="flex-1 min-w-0"></div>
+      <div id="toolbar-service-name" class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 pointer-events-none select-none"></div>
       <button type="button" id="toolbar-refresh" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors" title="Recarregar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
@@ -1161,6 +1297,17 @@ function renderContentArea() {
     webviewPanes.className = 'flex-1 min-h-0 relative';
     contentAreaEl.appendChild(toolbar);
     contentAreaEl.appendChild(webviewPanes);
+
+    toolbar.querySelector('#toolbar-back')?.addEventListener('click', () => { try { activeWebview?.goBack(); } catch {} });
+    toolbar.querySelector('#toolbar-forward')?.addEventListener('click', () => { try { activeWebview?.goForward(); } catch {} });
+    toolbar.querySelector('#toolbar-refresh')?.addEventListener('click', () => { activeWebview?.reload(); });
+    toolbar.querySelector('#toolbar-open-external')?.addEventListener('click', () => {
+      const u = activeWebview?.getURL?.();
+      if (u && typeof window.electronAPI?.openExternal === 'function') window.electronAPI.openExternal(u);
+    });
+    toolbar.querySelector('#toolbar-fullscreen')?.addEventListener('click', () => {
+      if (typeof window.electronAPI?.toggleFullscreen === 'function') window.electronAPI.toggleFullscreen();
+    });
   }
 
   const pane = getOrCreatePane(active);
@@ -1170,6 +1317,7 @@ function renderContentArea() {
   webviewCache.forEach((c, id) => {
     const isActive = id === activeServiceId;
     c.container.classList.toggle('hidden', !isActive);
+    try { c.webview.setBackgroundThrottling?.(!isActive); } catch {}
   });
 
   activeWebview = pane.webview;
@@ -1179,6 +1327,25 @@ function renderContentArea() {
     try { activeWebview.setZoomFactor(savedZoom); } catch {}
   }
   updateWindowTitle(active?.name);
+
+  // 4.2d — Toolbar service name
+  const toolbarNameEl = document.getElementById('toolbar-service-name');
+  if (toolbarNameEl && active) {
+    const iconUrl = getServiceIconUrl(active);
+    toolbarNameEl.innerHTML = '';
+    if (iconUrl) {
+      const ico = document.createElement('img');
+      ico.src = iconUrl;
+      ico.alt = '';
+      ico.className = 'w-4 h-4 rounded flex-shrink-0';
+      ico.onerror = function() { this.style.display = 'none'; };
+      toolbarNameEl.appendChild(ico);
+    }
+    const nameSpan = document.createElement('span');
+    nameSpan.className = 'text-xs font-medium text-zinc-400 truncate max-w-[200px]';
+    nameSpan.textContent = active.name;
+    toolbarNameEl.appendChild(nameSpan);
+  }
 
   function updateNavButtons() {
     const backBtn = document.getElementById('toolbar-back');
@@ -1190,45 +1357,7 @@ function renderContentArea() {
     } catch {}
   }
 
-  activeWebview.addEventListener('did-navigate', updateNavButtons);
-  activeWebview.addEventListener('did-navigate-in-page', updateNavButtons);
   updateNavButtons();
-
-  const backBtn = document.getElementById('toolbar-back');
-  const fwdBtn = document.getElementById('toolbar-forward');
-  const refreshBtn = document.getElementById('toolbar-refresh');
-  const externalBtn = document.getElementById('toolbar-open-external');
-  const fullscreenBtn = document.getElementById('toolbar-fullscreen');
-  const newBack = () => { try { activeWebview?.goBack(); } catch {} };
-  const newForward = () => { try { activeWebview?.goForward(); } catch {} };
-  const newRefresh = () => { activeWebview?.reload(); };
-  const newExternal = () => {
-    const u = activeWebview?.getURL?.();
-    if (u && typeof window.electronAPI?.openExternal === 'function') window.electronAPI.openExternal(u);
-  };
-  const newFullscreen = () => {
-    if (typeof window.electronAPI?.toggleFullscreen === 'function') window.electronAPI.toggleFullscreen();
-  };
-  if (backBtn) {
-    backBtn.replaceWith(backBtn.cloneNode(true));
-    document.getElementById('toolbar-back')?.addEventListener('click', newBack);
-  }
-  if (fwdBtn) {
-    fwdBtn.replaceWith(fwdBtn.cloneNode(true));
-    document.getElementById('toolbar-forward')?.addEventListener('click', newForward);
-  }
-  if (refreshBtn) {
-    refreshBtn.replaceWith(refreshBtn.cloneNode(true));
-    document.getElementById('toolbar-refresh')?.addEventListener('click', newRefresh);
-  }
-  if (externalBtn) {
-    externalBtn.replaceWith(externalBtn.cloneNode(true));
-    document.getElementById('toolbar-open-external')?.addEventListener('click', newExternal);
-  }
-  if (fullscreenBtn) {
-    fullscreenBtn.replaceWith(fullscreenBtn.cloneNode(true));
-    document.getElementById('toolbar-fullscreen')?.addEventListener('click', newFullscreen);
-  }
 }
 
 function render() {
@@ -1317,7 +1446,6 @@ function toggleSidebarCollapsed() {
   sidebarCollapsed = !sidebarCollapsed;
   localStorage.setItem(SIDEBAR_COLLAPSED_KEY, String(sidebarCollapsed));
   applySidebarCollapsed();
-  showToast(pick(sidebarCollapsed ? SIDEBAR_COLLAPSE_TOASTS : SIDEBAR_EXPAND_TOASTS));
 }
 
 function setupExportImport() {
@@ -1335,8 +1463,8 @@ function setupExportImport() {
     try {
       const exportData = { version: '1', services: services.map(s => ({ id: s.id, name: s.name, url: s.url, iconUrl: s.iconUrl, ...(s.customIcon ? { customIcon: s.customIcon } : {}) })), exportedAt: new Date().toISOString() };
       const result = await window.electronAPI.exportConfig(JSON.stringify(exportData, null, 2));
-      if (result?.success) showToast('Configurações exportadas!');
-    } catch { showToast('Erro ao exportar'); }
+      if (result?.success) showToast('Configurações exportadas!', { type: 'success' });
+    } catch { showToast('Erro ao exportar', { type: 'error' }); }
   });
   menuContainer.appendChild(exportBtn);
 
@@ -1361,16 +1489,153 @@ function setupExportImport() {
           ...(s.customIcon ? { customIcon: s.customIcon } : {})
         })).filter(s => s.url.startsWith('http'));
         saveServices();
-        activeServiceId = services[0]?.id ?? null;
+        setActiveService(services[0]?.id ?? null);
         render();
-        showToast('Importados ' + services.length + ' serviços!');
+        showToast('Importados ' + services.length + ' serviços!', { type: 'success' });
       } else {
-        showToast('Arquivo inválido ou sem serviços');
+        showToast('Arquivo inválido ou sem serviços', { type: 'error' });
       }
-    } catch { showToast('Erro ao importar — verifique o arquivo'); }
+    } catch { showToast('Erro ao importar — verifique o arquivo', { type: 'error' }); }
   });
   menuContainer.appendChild(importBtn);
 }
+
+// ─── 4.3 Command Palette ─────────────────────────────────────────────────────
+
+let paletteIndex = 0;
+let paletteItems = [];
+
+function buildPaletteItems(query) {
+  const q = (query || '').trim().toLowerCase();
+  const items = [];
+
+  // Services
+  const visibleServices = services.filter(s => !s.disabled);
+  visibleServices.forEach((s, i) => {
+    if (!q || s.name.toLowerCase().includes(q) || (s.url || '').toLowerCase().includes(q)) {
+      items.push({ type: 'service', id: s.id, label: s.name, icon: getServiceIconUrl(s), hint: i < 9 ? '⌘' + (i + 1) : '' });
+    }
+  });
+
+  // Fixed actions
+  const isMac = typeof navigator !== 'undefined' && /mac/i.test(navigator.platform || '');
+  const modKey = isMac ? '⌘' : 'Ctrl+';
+  const actions = [
+    { label: 'Adicionar serviço',          run: () => openModal() },
+    { label: muteAll ? 'Reativar som' : 'Silenciar tudo', run: () => { toggleMuteAll(); } },
+    { label: 'Verificar atualizações',     run: () => checkForUpdates(true) },
+    { label: 'Exportar configurações',     run: () => document.getElementById('menu-option-export')?.click() },
+    { label: 'Importar configurações',     run: () => document.getElementById('menu-option-import')?.click() },
+    { label: 'Alternar tema',              run: () => toggleTheme() },
+  ];
+  actions.forEach(a => {
+    if (!q || a.label.toLowerCase().includes(q)) {
+      items.push({ type: 'action', label: a.label, run: a.run, hint: '' });
+    }
+  });
+
+  return items;
+}
+
+function renderPaletteList(query) {
+  paletteItems = buildPaletteItems(query);
+  if (paletteIndex >= paletteItems.length) paletteIndex = 0;
+
+  const list = document.getElementById('palette-list');
+  const empty = document.getElementById('palette-empty');
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (paletteItems.length === 0) {
+    if (empty) empty.classList.remove('hidden');
+    return;
+  }
+  if (empty) empty.classList.add('hidden');
+
+  paletteItems.forEach((item, idx) => {
+    const li = document.createElement('li');
+    li.className = 'palette-item flex items-center gap-3 px-4 py-2.5 cursor-pointer text-sm text-zinc-300 transition-colors ' +
+      (idx === paletteIndex ? 'bg-zinc-700/70 text-zinc-100' : 'hover:bg-zinc-700/40');
+    li.setAttribute('role', 'option');
+    li.setAttribute('aria-selected', String(idx === paletteIndex));
+    li.dataset.idx = String(idx);
+
+    if (item.type === 'service') {
+      const ico = document.createElement('img');
+      ico.src = item.icon || '';
+      ico.alt = '';
+      ico.className = 'w-5 h-5 rounded flex-shrink-0';
+      ico.onerror = function() { this.style.display = 'none'; };
+      li.appendChild(ico);
+    } else {
+      const dot = document.createElement('span');
+      dot.className = 'w-5 h-5 flex-shrink-0 flex items-center justify-center text-zinc-500';
+      dot.innerHTML = '<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>';
+      li.appendChild(dot);
+    }
+
+    const labelSpan = document.createElement('span');
+    labelSpan.className = 'flex-1 truncate';
+    labelSpan.textContent = item.label;
+    li.appendChild(labelSpan);
+
+    if (item.hint) {
+      const hint = document.createElement('kbd');
+      hint.className = 'text-[10px] text-zinc-500 bg-zinc-700/60 px-1.5 py-0.5 rounded border border-zinc-600/50 font-mono flex-shrink-0';
+      hint.textContent = item.hint;
+      li.appendChild(hint);
+    }
+
+    li.addEventListener('mouseenter', () => {
+      paletteIndex = idx;
+      renderPaletteList(document.getElementById('palette-input')?.value || '');
+    });
+    li.addEventListener('click', () => runPaletteItem(item));
+    list.appendChild(li);
+  });
+
+  // Scroll active item into view
+  const active = list.querySelector(`[data-idx="${paletteIndex}"]`);
+  active?.scrollIntoView({ block: 'nearest' });
+}
+
+function openPalette() {
+  const modal = document.getElementById('modal-palette');
+  if (!modal) return;
+  paletteIndex = 0;
+  modal.classList.add('modal-open');
+  const input = document.getElementById('palette-input');
+  if (input) { input.value = ''; input.focus(); }
+  renderPaletteList('');
+}
+
+function closePalette() {
+  const modal = document.getElementById('modal-palette');
+  if (modal) modal.classList.remove('modal-open');
+}
+
+function movePaletteSelection(delta) {
+  if (paletteItems.length === 0) return;
+  paletteIndex = (paletteIndex + delta + paletteItems.length) % paletteItems.length;
+  renderPaletteList(document.getElementById('palette-input')?.value || '');
+}
+
+function runPaletteItem(item) {
+  if (!item) return;
+  closePalette();
+  if (item.type === 'service') {
+    setActiveService(item.id);
+    updateSidebarActiveState();
+    renderContentArea();
+    updateMuteAllButton();
+    const svc = services.find(s => s.id === item.id);
+    if (svc) updateWindowTitle(svc.name);
+  } else if (typeof item.run === 'function') {
+    item.run();
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 function init() {
   serviceListEl = document.getElementById('service-list');
@@ -1382,8 +1647,31 @@ function init() {
   inputUrlEl = document.getElementById('input-url');
 
   loadServices();
+  loadZoomLevels();
+  // Restore last active service
+  try {
+    const savedId = localStorage.getItem(ACTIVE_SERVICE_KEY);
+    if (savedId) {
+      const match = services.find(s => s.id === savedId && !s.disabled);
+      activeServiceId = match ? match.id : (services.find(s => !s.disabled)?.id ?? services[0]?.id ?? null);
+    } else {
+      activeServiceId = services.find(s => !s.disabled)?.id ?? services[0]?.id ?? null;
+    }
+  } catch {}
   loadMuteState();
   loadSidebarState();
+  // 4.4 — auto-collapse sidebar on narrow screens (no preference saved)
+  if (typeof window.matchMedia === 'function') {
+    const narrowMQ = window.matchMedia('(max-width: 640px)');
+    const applyNarrow = (mq) => {
+      if (mq.matches && !sidebarCollapsed) {
+        sidebarCollapsed = true;
+        applySidebarCollapsed();
+      }
+    };
+    applyNarrow(narrowMQ);
+    narrowMQ.addEventListener('change', applyNarrow);
+  }
   loadTheme();
   // Sync initial theme with OS preference for new installs
   if (!localStorage.getItem(THEME_KEY) && typeof window.electronAPI?.getPlatformInfo === 'function') {
@@ -1405,7 +1693,7 @@ function init() {
 
   if (!localStorage.getItem(FIRST_VISIT_KEY)) {
     try { localStorage.setItem(FIRST_VISIT_KEY, '1'); } catch {}
-    setTimeout(() => showBigToast(pick(WELCOME_TOASTS), 3500), 800);
+    setTimeout(() => showToast(pick(WELCOME_TOASTS), { type: 'info', duration: 3500 }), 800);
   }
 
   const btnCollapse = document.getElementById('btn-collapse');
@@ -1460,7 +1748,7 @@ function init() {
         pendingModalCustomIcon = dataUrl;
         updateModalIconPreview();
       } catch {
-        showToast('Erro ao carregar imagem');
+        showToast('Erro ao carregar imagem', { type: 'error' });
       }
     });
   }
@@ -1496,14 +1784,34 @@ function init() {
     coffeeCopyPix.addEventListener('click', async () => {
       try {
         await navigator.clipboard.writeText(PIX_KEY);
-        showToast('Chave PIX copiada');
+        showToast('Chave PIX copiada', { type: 'success' });
       } catch {
-        showToast('Erro ao copiar');
+        showToast('Erro ao copiar', { type: 'error' });
       }
     });
   }
 
   document.addEventListener('keydown', (e) => {
+    // 4.3 — palette Cmd+K (before all other handlers)
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+      e.preventDefault();
+      const paletteModal = document.getElementById('modal-palette');
+      if (paletteModal?.classList.contains('modal-open')) {
+        closePalette();
+      } else {
+        openPalette();
+      }
+      return;
+    }
+    // 4.3 — palette keyboard navigation
+    const paletteOpen = document.getElementById('modal-palette')?.classList.contains('modal-open');
+    if (paletteOpen) {
+      if (e.key === 'Escape') { closePalette(); return; }
+      if (e.key === 'ArrowDown') { e.preventDefault(); movePaletteSelection(1); return; }
+      if (e.key === 'ArrowUp')   { e.preventDefault(); movePaletteSelection(-1); return; }
+      if (e.key === 'Enter')     { e.preventDefault(); runPaletteItem(paletteItems[paletteIndex]); return; }
+      return; // swallow other keys while palette is open
+    }
     if (e.key === 'Escape') {
       if (modalEl?.classList.contains('modal-open')) closeModal();
       else if (document.getElementById('modal-delete')?.classList.contains('modal-open')) closeDeleteModal();
@@ -1522,21 +1830,24 @@ function init() {
       const next = Math.min(3.0, Math.round((current + 0.1) * 10) / 10);
       zoomLevels.set(activeServiceId, next);
       try { activeWebview.setZoomFactor(next); } catch {}
+      saveZoomLevels();
     } else if (activeWebview && e.key === '-') {
       e.preventDefault();
       const current = zoomLevels.get(activeServiceId) ?? 1.0;
       const next = Math.max(0.3, Math.round((current - 0.1) * 10) / 10);
       zoomLevels.set(activeServiceId, next);
       try { activeWebview.setZoomFactor(next); } catch {}
+      saveZoomLevels();
     } else if (activeWebview && e.key === '0') {
       e.preventDefault();
       zoomLevels.set(activeServiceId, 1.0);
       try { activeWebview.setZoomFactor(1.0); } catch {}
+      saveZoomLevels();
     } else if (e.key >= '1' && e.key <= '9') {
       const idx = parseInt(e.key, 10) - 1;
       if (services[idx] && !modalEl?.classList.contains('modal-open')) {
         e.preventDefault();
-        activeServiceId = services[idx].id;
+        setActiveService(services[idx].id);
         updateSidebarActiveState();
         renderContentArea();
         updateMuteAllButton();
@@ -1547,8 +1858,34 @@ function init() {
         e.preventDefault();
         activeWebview.reload();
       }
+    } else if (e.shiftKey && (e.key === ']' || e.key === '[')) {
+      // 3.4 — Cmd/Ctrl+Shift+] próximo serviço; Cmd/Ctrl+Shift+[ anterior
+      const visible = services.filter(s => !s.disabled);
+      if (visible.length > 1 && !modalEl?.classList.contains('modal-open')) {
+        e.preventDefault();
+        const curIdx = visible.findIndex(s => s.id === activeServiceId);
+        const newIdx = e.key === ']'
+          ? (curIdx + 1) % visible.length
+          : (curIdx - 1 + visible.length) % visible.length;
+        const target = visible[newIdx];
+        setActiveService(target.id);
+        updateSidebarActiveState();
+        renderContentArea();
+        updateMuteAllButton();
+        updateWindowTitle(target.name);
+      }
     }
   });
+
+  // 4.3 — Palette overlay + input wiring
+  document.getElementById('modal-palette-overlay')?.addEventListener('click', closePalette);
+  const paletteInput = document.getElementById('palette-input');
+  if (paletteInput) {
+    paletteInput.addEventListener('input', () => {
+      paletteIndex = 0;
+      renderPaletteList(paletteInput.value);
+    });
+  }
 
   const modalDeleteOverlay = document.getElementById('modal-delete-overlay');
   if (modalDeleteOverlay) modalDeleteOverlay.addEventListener('click', closeDeleteModal);
@@ -1567,9 +1904,11 @@ function init() {
 
   const sidebarSearch = document.getElementById('sidebar-search');
   if (sidebarSearch) {
+    let _searchDebounce = null;
     sidebarSearch.addEventListener('input', () => {
       searchFilter = sidebarSearch.value;
-      renderSidebar();
+      clearTimeout(_searchDebounce);
+      _searchDebounce = setTimeout(() => filterSidebar(searchFilter), 120);
     });
   }
 
@@ -1578,6 +1917,14 @@ function init() {
 
   document.getElementById('modal-menu-overlay')?.addEventListener('click', closeMenuModal);
   document.getElementById('modal-menu-close')?.addEventListener('click', closeMenuModal);
+
+  const toastLevelSelect = document.getElementById('toast-level-select');
+  if (toastLevelSelect) {
+    try { toastLevelSelect.value = localStorage.getItem(TOAST_LEVEL_KEY) || 'normal'; } catch {}
+    toastLevelSelect.addEventListener('change', () => {
+      try { localStorage.setItem(TOAST_LEVEL_KEY, toastLevelSelect.value); } catch {}
+    });
+  }
 
   document.getElementById('menu-option-star')?.addEventListener('click', () => {
     closeMenuModal();
@@ -1621,7 +1968,41 @@ function init() {
   if (modalStarLater) modalStarLater.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
   if (modalStarOverlay) modalStarOverlay.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
 
+  // 3.3 — ao clicar numa notificação nativa, ativar o serviço correspondente
+  window.electronAPI?.onFocusService?.((d) => {
+    if (d && d.serviceId) {
+      setActiveService(d.serviceId);
+      render();
+    }
+  });
+
+  // 3.4 — auto-launch: ler estado e reagir a mudanças no toggle
+  const autoLaunchToggle = document.getElementById('auto-launch-toggle');
+  if (autoLaunchToggle && typeof window.electronAPI?.getAutoLaunch === 'function') {
+    window.electronAPI.getAutoLaunch().then(enabled => {
+      autoLaunchToggle.checked = !!enabled;
+    }).catch(() => {});
+    autoLaunchToggle.addEventListener('change', async () => {
+      try {
+        const result = await window.electronAPI.setAutoLaunch(autoLaunchToggle.checked);
+        autoLaunchToggle.checked = !!result;
+      } catch {}
+    });
+  }
+
   setupExportImport();
+
+  // Pre-populate icon cache in background (non-blocking)
+  if (window.electronAPI?.getCachedIcon) {
+    setTimeout(() => {
+      services.forEach(s => {
+        const url = getServiceIconUrl(s);
+        if (url && url.startsWith('https://')) {
+          window.electronAPI.getCachedIcon(url).catch(() => {});
+        }
+      });
+    }, 3000);
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);

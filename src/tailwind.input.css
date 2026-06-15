@@ -1,3 +1,6 @@
 @import "tailwindcss";
 @source "../src/index.html";
 @source "../src/renderer.js";
+@theme inline {
+  --color-accent: var(--accent);
+}
