@@ -117,27 +117,23 @@ function buildPopupWindowOptions(partition, features) {
 function setupWebviewWindowOpenHandler(webContents) {
   webContents.setWindowOpenHandler(({ url, features }) => {
     if (!url || typeof url !== 'string') return { action: 'deny' };
-    if (url !== 'about:blank' && !url.startsWith('http://') && !url.startsWith('https://')) {
-      return { action: 'deny' };
-    }
 
     const partition = webContents.session?.partition;
     ensureWebviewSessionHandlers(webContents.session);
 
-    if (isAuthProviderUrl(url)) {
-      openEmbeddedAuthWindow(url, partition).then((finalUrl) => {
-        if (finalUrl && !webContents.isDestroyed()) {
-          webContents.loadURL(finalUrl);
-        }
-      });
-      return { action: 'deny' };
+    // OAuth / passkey: popup na mesma sessão (about:blank → redirect é comum)
+    if (url === 'about:blank' || isAuthProviderUrl(url)) {
+      return {
+        action: 'allow',
+        overrideBrowserWindowOptions: buildPopupWindowOptions(partition, features)
+      };
     }
 
-    // Passkeys/OAuth: manter popup na mesma sessão (window.opener) — não abrir browser externo
-    return {
-      action: 'allow',
-      overrideBrowserWindowOptions: buildPopupWindowOptions(partition, features)
-    };
+    // Links normais (target=_blank, etc.) → browser padrão do SO
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+      shell.openExternal(url).catch(() => {});
+    }
+    return { action: 'deny' };
   });
 
   webContents.on('did-create-window', (childWindow) => {
@@ -201,7 +197,12 @@ function showSourcePicker(sources, request) {
 
     let settled = false;
 
-    const getHandler = () => ({ sources: payload, audioRequested: !!request.audioRequested, platform: process.platform });
+    const getHandler = () => ({
+      sources: payload,
+      audioRequested: !!request.audioRequested,
+      platform: process.platform,
+      theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+    });
     ipcMain.handle('picker:get-sources', getHandler);
 
     const onChoose = (_e, choice) => finish(choice);
@@ -496,6 +497,32 @@ ipcMain.handle('import-config', async () => {
 });
 
 const RELEASES_URL = 'https://api.github.com/repos/renatoruis/timworkspaces/releases/latest';
+
+function pickReleaseDownloadUrl(assets) {
+  if (!Array.isArray(assets) || !assets.length) return null;
+  const downloadable = assets.filter((a) => a?.browser_download_url && typeof a.name === 'string');
+  if (!downloadable.length) return null;
+
+  if (process.platform === 'darwin') {
+    const dmgs = downloadable.filter((a) => /\.dmg$/i.test(a.name));
+    if (!dmgs.length) return null;
+    const archHint = process.arch === 'arm64' ? 'arm64' : 'x64';
+    const match = dmgs.find((a) => a.name.toLowerCase().includes(archHint));
+    return (match || dmgs[0]).browser_download_url;
+  }
+  if (process.platform === 'win32') {
+    const exe = downloadable.find((a) => /\.exe$/i.test(a.name));
+    return exe?.browser_download_url || null;
+  }
+  if (process.platform === 'linux') {
+    const appImage = downloadable.find((a) => /\.AppImage$/i.test(a.name));
+    if (appImage) return appImage.browser_download_url;
+    const deb = downloadable.find((a) => /\.deb$/i.test(a.name));
+    return deb?.browser_download_url || null;
+  }
+  return null;
+}
+
 function compareVersions(current, latest) {
   const curr = (current || '0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
   const latestClean = (latest || '0').replace(/^v/, '').split('.').map(n => parseInt(n, 10) || 0);
@@ -518,8 +545,10 @@ ipcMain.handle('check-updates', async () => {
     const tagName = data.tag_name || '';
     const latestVersion = tagName.replace(/^v/, '');
     const url = data.html_url || 'https://github.com/renatoruis/timworkspaces/releases/latest';
+    const downloadUrl = pickReleaseDownloadUrl(data.assets) || url;
+    const releaseNotes = typeof data.body === 'string' ? data.body.trim() : '';
     const available = compareVersions(current, tagName);
-    return { available, version: latestVersion, url, currentVersion: current };
+    return { available, version: latestVersion, url, downloadUrl, releaseNotes, currentVersion: current };
   } catch {
     return { available: false, currentVersion: app.getVersion() };
   }

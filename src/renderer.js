@@ -45,7 +45,7 @@ let mutedServices = new Set();
 let muteAll = false;
 let searchFilter = '';
 const webviewCache = new Map(); // serviceId -> { container, webview, loadingBar }
-let updateInfo = null; // { version, url } quando há nova versão
+let updateInfo = null; // { version, url, downloadUrl, releaseNotes } quando há nova versão
 const notificationCounts = new Map(); // serviceId -> number
 const zoomLevels = new Map(); // serviceId -> zoomFactor
 let presetsLoaded = false;
@@ -554,9 +554,21 @@ function openUpdateModal() {
   if (!updateInfo) return;
   const versionEl = document.getElementById('modal-update-version');
   const currentEl = document.getElementById('modal-update-current');
+  const notesEl = document.getElementById('modal-update-notes');
   if (versionEl) versionEl.textContent = updateInfo.version;
   if (currentEl && typeof window.electronAPI?.getAppVersion === 'function') {
     window.electronAPI.getAppVersion().then(v => { currentEl.textContent = v; });
+  }
+  if (notesEl) {
+    const notes = (updateInfo.releaseNotes || '').trim();
+    if (notes) {
+      const preview = notes.split('\n').slice(0, 6).join('\n').trim();
+      notesEl.textContent = preview;
+      notesEl.classList.remove('hidden');
+    } else {
+      notesEl.textContent = '';
+      notesEl.classList.add('hidden');
+    }
   }
   document.getElementById('modal-update')?.classList.add('modal-open');
 }
@@ -573,8 +585,13 @@ async function checkForUpdates(showModalIfNew = false) {
   try {
     const result = await window.electronAPI.checkUpdates();
     try { localStorage.setItem(LAST_CHECK_KEY, String(Date.now())); } catch {}
-    if (result.available && result.version && result.url) {
-      updateInfo = { version: result.version, url: result.url };
+    if (result.available && result.version && (result.downloadUrl || result.url)) {
+      updateInfo = {
+        version: result.version,
+        url: result.url,
+        downloadUrl: result.downloadUrl || result.url,
+        releaseNotes: result.releaseNotes || ''
+      };
       showToast(formatUpdateAvailableToast(result.version), { type: 'success', duration: 4000 });
       showUpdateBanner(true);
       const lastSeen = localStorage.getItem(LAST_SEEN_UPDATE_KEY);
@@ -934,7 +951,7 @@ function renderSidebar() {
     iconWrap.appendChild(img);
     if (isDisabled) {
       const pauseOverlay = document.createElement('span');
-      pauseOverlay.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--text-muted,#71717a);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px var(--bg,#212124);';
+      pauseOverlay.style.cssText = 'position:absolute;bottom:-3px;right:-3px;width:10px;height:10px;border-radius:50%;background:var(--text-muted);display:flex;align-items:center;justify-content:center;box-shadow:0 0 0 1.5px var(--bg);';
       pauseOverlay.innerHTML = '<svg width="6" height="6" viewBox="0 0 24 24" fill="white"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>';
       iconWrap.appendChild(pauseOverlay);
     }
@@ -1055,6 +1072,19 @@ function filterSidebar(term) {
 }
 
 // 5 & 6. Renderizar content-area (webview ou mensagem)
+function updateToolbarZoom(factor) {
+  const zoomEl = document.getElementById('toolbar-zoom');
+  if (!zoomEl) return;
+  const zoom = typeof factor === 'number' ? factor : (zoomLevels.get(activeServiceId) ?? 1.0);
+  if (Math.abs(zoom - 1.0) < 0.001) {
+    zoomEl.textContent = '';
+    zoomEl.classList.add('hidden');
+  } else {
+    zoomEl.textContent = Math.round(zoom * 100) + '%';
+    zoomEl.classList.remove('hidden');
+  }
+}
+
 function renderContentArea() {
   if (!contentAreaEl) return;
 
@@ -1294,6 +1324,7 @@ function renderContentArea() {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </button>
       <div id="toolbar-service-name" class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 pointer-events-none select-none"></div>
+      <span id="toolbar-zoom" class="hidden text-[10px] font-medium text-zinc-500 tabular-nums px-1.5 py-0.5 rounded bg-zinc-700/40 pointer-events-none select-none" aria-hidden="true"></span>
       <button type="button" id="toolbar-refresh" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors" title="Recarregar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
       </button>
@@ -1358,6 +1389,7 @@ function renderContentArea() {
     nameSpan.textContent = active.name;
     toolbarNameEl.appendChild(nameSpan);
   }
+  updateToolbarZoom();
 
   function updateNavButtons() {
     const backBtn = document.getElementById('toolbar-back');
@@ -1843,6 +1875,7 @@ function init() {
       zoomLevels.set(activeServiceId, next);
       try { activeWebview.setZoomFactor(next); } catch {}
       saveZoomLevels();
+      updateToolbarZoom(next);
     } else if (activeWebview && e.key === '-') {
       e.preventDefault();
       const current = zoomLevels.get(activeServiceId) ?? 1.0;
@@ -1850,20 +1883,23 @@ function init() {
       zoomLevels.set(activeServiceId, next);
       try { activeWebview.setZoomFactor(next); } catch {}
       saveZoomLevels();
+      updateToolbarZoom(next);
     } else if (activeWebview && e.key === '0') {
       e.preventDefault();
       zoomLevels.set(activeServiceId, 1.0);
       try { activeWebview.setZoomFactor(1.0); } catch {}
       saveZoomLevels();
+      updateToolbarZoom(1.0);
     } else if (e.key >= '1' && e.key <= '9') {
       const idx = parseInt(e.key, 10) - 1;
-      if (services[idx] && !modalEl?.classList.contains('modal-open')) {
+      const visible = services.filter(s => !s.disabled);
+      if (visible[idx] && !modalEl?.classList.contains('modal-open')) {
         e.preventDefault();
-        setActiveService(services[idx].id);
+        setActiveService(visible[idx].id);
         updateSidebarActiveState();
         renderContentArea();
         updateMuteAllButton();
-        updateWindowTitle(services[idx].name);
+        updateWindowTitle(visible[idx].name);
       }
     } else if (e.key === 'r' || e.key === 'R') {
       if (activeWebview && !modalEl?.classList.contains('modal-open')) {
@@ -1960,8 +1996,8 @@ function init() {
   const modalUpdateDownload = document.getElementById('modal-update-download');
   if (modalUpdateDownload) {
     modalUpdateDownload.addEventListener('click', () => {
-      if (updateInfo?.url && typeof window.electronAPI?.openExternal === 'function') {
-        window.electronAPI.openExternal(updateInfo.url);
+      if (updateInfo?.downloadUrl && typeof window.electronAPI?.openExternal === 'function') {
+        window.electronAPI.openExternal(updateInfo.downloadUrl);
       }
       closeUpdateModal();
     });

@@ -135,6 +135,15 @@
     [data-theme="light"] #palette-input { color: #18181b !important; }
     [data-theme="light"] #palette-list .palette-item { color: #52525b !important; }
     [data-theme="light"] #palette-list .palette-item:hover, [data-theme="light"] #palette-list .palette-item[aria-selected="true"] { background-color: rgba(212,212,216,0.5) !important; color: #18181b !important; }
+    [data-theme="light"] #content-toolbar { background-color: var(--surface-raised) !important; border-color: var(--border) !important; }
+    [data-theme="light"] #content-toolbar button { color: var(--text-muted) !important; }
+    [data-theme="light"] #content-toolbar button:hover { color: var(--text) !important; background-color: rgba(113,113,122,0.15) !important; }
+    [data-theme="light"] #toolbar-service-name span { color: var(--text-muted) !important; }
+    [data-theme="light"] #toolbar-zoom { color: var(--text-dim) !important; background-color: var(--surface-raised) !important; }
+    [data-theme="light"] #toast-level-select { background-color: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--border) !important; }
+    [data-theme="light"] .menu-shortcuts { color: var(--text-muted) !important; }
+    [data-theme="light"] .menu-shortcuts kbd { background-color: var(--surface-raised) !important; border-color: var(--border) !important; color: var(--text-dim) !important; }
+    [data-theme="light"] #modal-update-notes { color: var(--text-muted) !important; background-color: var(--surface-raised) !important; border-color: var(--border) !important; }
   </style>
 </head>
 <body class="text-zinc-200 h-screen flex flex-col font-sans antialiased" data-theme="dark">
@@ -261,8 +270,18 @@
         </button>
       </div>
       <div class="mt-4 pt-4 border-t border-zinc-600/40">
+        <p class="text-xs font-medium text-zinc-400 mb-2">Atalhos de teclado</p>
+        <ul class="menu-shortcuts space-y-1.5 text-xs text-zinc-500">
+          <li class="flex items-center justify-between gap-2"><span>Paleta de comandos</span><kbd class="px-1.5 py-0.5 rounded border border-zinc-600/40 bg-zinc-700/40 font-mono text-[10px]">⌘K</kbd></li>
+          <li class="flex items-center justify-between gap-2"><span>Serviços 1–9</span><kbd class="px-1.5 py-0.5 rounded border border-zinc-600/40 bg-zinc-700/40 font-mono text-[10px]">⌘1–9</kbd></li>
+          <li class="flex items-center justify-between gap-2"><span>Próximo / anterior</span><kbd class="px-1.5 py-0.5 rounded border border-zinc-600/40 bg-zinc-700/40 font-mono text-[10px]">⌘⇧] / ⌘⇧[</kbd></li>
+          <li class="flex items-center justify-between gap-2"><span>Zoom</span><kbd class="px-1.5 py-0.5 rounded border border-zinc-600/40 bg-zinc-700/40 font-mono text-[10px]">⌘+ / ⌘− / ⌘0</kbd></li>
+          <li class="flex items-center justify-between gap-2"><span>Mostrar / ocultar</span><kbd class="px-1.5 py-0.5 rounded border border-zinc-600/40 bg-zinc-700/40 font-mono text-[10px]">⌘⇧Space</kbd></li>
+        </ul>
+      </div>
+      <div class="mt-4 pt-4 border-t border-zinc-600/40">
         <label for="toast-level-select" class="block text-xs font-medium text-zinc-400 mb-1.5">Notificações da app</label>
-        <select id="toast-level-select" class="w-full px-3 py-2 rounded-xl text-sm text-zinc-300 border border-zinc-600/30 transition-colors" style="background-color:#2a2a2d">
+        <select id="toast-level-select" class="w-full px-3 py-2 rounded-xl text-sm text-zinc-300 border border-zinc-600/30 transition-colors" style="background-color:var(--surface-raised)">
           <option value="normal">Todas</option>
           <option value="erros">Só erros e confirmações</option>
           <option value="silencioso">Só erros críticos</option>
@@ -315,6 +334,7 @@
     <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-update-title" class="text-lg font-semibold text-zinc-100 mb-2">Tem novidade!</h3>
       <p id="modal-update-desc" class="text-sm text-zinc-400 mb-4">Tem a versão <strong id="modal-update-version" class="text-zinc-200">–</strong> pronta! Tu tá na <strong id="modal-update-current" class="text-zinc-200">–</strong>.</p>
+      <pre id="modal-update-notes" class="hidden text-xs text-zinc-400 mb-4 p-3 rounded-xl border border-zinc-600/30 whitespace-pre-wrap max-h-32 overflow-y-auto" style="background-color:var(--surface-raised)"></pre>
       <div class="flex gap-2 justify-end">
         <button type="button" id="modal-update-later" class="px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Depois</button>
         <button type="button" id="modal-update-download" class="px-4 py-2 bg-violet-500 hover:bg-violet-400 text-white rounded-lg text-sm font-medium transition-colors inline-flex items-center gap-2">

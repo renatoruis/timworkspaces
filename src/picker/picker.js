@@ -1,7 +1,10 @@
 // picker.js — sem dependências externas
 (async () => {
   const data = await pickerAPI.getSources();
-  const { sources, audioRequested, platform } = data;
+  const { sources, audioRequested, platform, theme } = data;
+  if (theme === 'light' || theme === 'dark') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
 
   let selectedId = null;
 
