@@ -17,10 +17,5 @@
   <!-- Outbound network access -->
   <key>com.apple.security.network.client</key>
   <true/>
-  <!-- WebAuthn / passkeys (Touch ID) — requer assinatura com keychain-access-groups -->
-  <key>keychain-access-groups</key>
-  <array>
-    <string>$(AppIdentifierPrefix)com.timworkspaces.app.webauthn</string>
-  </array>
 </dict>
 </plist>

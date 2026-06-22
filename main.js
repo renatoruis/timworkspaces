@@ -29,7 +29,7 @@ const WEBVIEW_PERMISSION_ALLOW = new Set([
 const configuredWebviewSessions = new WeakSet();
 const configuredWebAuthnSelectors = new WeakSet();
 
-// Deve coincidir com keychain-access-groups em entitlements.mac.plist (TEAM_ID.com.timworkspaces.app.webauthn)
+// Só usado com keychain-access-groups + provisioning profile (ver entitlements.mac.webauthn.plist)
 const WEBAUTHN_KEYCHAIN_GROUP = 'B63MDW2RH7.com.timworkspaces.app.webauthn';
 
 function attachWebAuthnAccountSelector(sess) {
@@ -737,13 +737,21 @@ app.on('web-contents-created', (_, webContents) => {
 
 function configurePlatformWebAuthn() {
   if (process.platform !== 'darwin' || typeof app.configureWebAuthn !== 'function') return;
-  app.configureWebAuthn({
-    touchID: {
-      keychainAccessGroup: WEBAUTHN_KEYCHAIN_GROUP,
-      promptReason: 'iniciar sessão em $1'
+  // configureWebAuthn exige keychain-access-groups no entitlement + provisioning profile;
+  // sem isso o macOS bloqueia o arranque da app assinada — ativar só quando suportado.
+  if (process.env.TIMWORKSPACES_WEBAUTHN === '1') {
+    try {
+      app.configureWebAuthn({
+        touchID: {
+          keychainAccessGroup: WEBAUTHN_KEYCHAIN_GROUP,
+          promptReason: 'iniciar sessão em $1'
+        }
+      });
+      attachWebAuthnAccountSelector(session.defaultSession);
+    } catch {
+      // passkeys indisponíveis neste build
     }
-  });
-  attachWebAuthnAccountSelector(session.defaultSession);
+  }
 }
 
 function createTrayIcon() {

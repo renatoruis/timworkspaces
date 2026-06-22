@@ -81,6 +81,10 @@ Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
 ## Changelog recente
 
+### v1.5.1
+
+- **Fix macOS:** remove `keychain-access-groups` do build padrão — a v1.5.0 não abria (“app não pode ser aberto”) sem provisioning profile Apple.
+
 ### v1.5.0
 
 - **Passkeys / WebAuthn** (Teams, Microsoft, etc.): Electron 42 + `configureWebAuthn` com Touch ID no macOS.
