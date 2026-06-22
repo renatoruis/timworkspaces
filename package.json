@@ -1,7 +1,7 @@
 {
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
   "author": {
     "name": "Renato Ruis",
@@ -24,7 +24,7 @@
   },
   "devDependencies": {
     "@tailwindcss/cli": "^4.2.1",
-    "electron": "^37.0.0",
+    "electron": "^42.4.1",
     "electron-builder": "^25.1.8",
     "tailwindcss": "^4.2.1"
   },

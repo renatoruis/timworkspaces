@@ -24,7 +24,7 @@
   <a href="https://github.com/renatoruis/timworkspaces/stargazers"><img src="https://img.shields.io/github/stars/renatoruis/timworkspaces?style=flat" alt="Stars"></a>
   <br>
   <a href="https://github.com/renatoruis/timworkspaces"><img src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-2d2d2d" alt="Plataformas"></a>
-  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-37-47848f" alt="Electron"></a>
+  <a href="https://www.electronjs.org/"><img src="https://img.shields.io/badge/Electron-42-47848f" alt="Electron"></a>
   <a href="https://pnpm.io/"><img src="https://img.shields.io/badge/pnpm-10-f69220?logo=pnpm&logoColor=white" alt="pnpm"></a>
 </p>
 
@@ -80,6 +80,12 @@ xattr -cr /Applications/Tim\ Workspaces.app
 Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
 ## Changelog recente
+
+### v1.5.0
+
+- **Passkeys / WebAuthn** (Teams, Microsoft, etc.): Electron 42 + `configureWebAuthn` com Touch ID no macOS.
+- Login **Microsoft** em janela dedicada (como Google); popups de auth na mesma sessão.
+- Build **macOS assinado e notarizado** via CI (`ENABLE_MAC_SIGNING`).
 
 ### v1.4.1
 

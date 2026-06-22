@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer, systemPreferences, Notification, globalShortcut } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer, systemPreferences, Notification, globalShortcut, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -21,8 +21,132 @@ const WEBVIEW_PERMISSION_ALLOW = new Set([
   'display-capture',
   'fullscreen',
   'speaker-selection',
-  'window-management'
+  'window-management',
+  'clipboard-read',
+  'clipboard-sanitized-write'
 ]);
+
+const configuredWebviewSessions = new WeakSet();
+const configuredWebAuthnSelectors = new WeakSet();
+
+// Deve coincidir com keychain-access-groups em entitlements.mac.plist (TEAM_ID.com.timworkspaces.app.webauthn)
+const WEBAUTHN_KEYCHAIN_GROUP = 'B63MDW2RH7.com.timworkspaces.app.webauthn';
+
+function attachWebAuthnAccountSelector(sess) {
+  if (!sess || configuredWebAuthnSelectors.has(sess)) return;
+  configuredWebAuthnSelectors.add(sess);
+
+  sess.on('select-webauthn-account', async (_event, details, callback) => {
+    let selectedId = null;
+    try {
+      const accounts = details?.accounts || [];
+      if (accounts.length === 1) {
+        selectedId = accounts[0].credentialId;
+      } else if (accounts.length > 1) {
+        const labels = accounts.map((a, i) => a.name || a.email || `Conta ${i + 1}`);
+        const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+        const { response } = await dialog.showMessageBox(parent, {
+          type: 'question',
+          title: 'Escolher passkey',
+          message: `Qual conta usar em ${details.relyingPartyId || 'este site'}?`,
+          buttons: [...labels, 'Cancelar'],
+          cancelId: labels.length,
+          noLink: true
+        });
+        if (response >= 0 && response < accounts.length) {
+          selectedId = accounts[response].credentialId;
+        }
+      }
+    } catch {
+      selectedId = null;
+    } finally {
+      callback(selectedId || undefined);
+    }
+  });
+}
+
+function ensureWebviewSessionHandlers(sess) {
+  if (!sess || configuredWebviewSessions.has(sess)) return;
+  configuredWebviewSessions.add(sess);
+
+  sess.setPermissionRequestHandler((_wc, permission, callback) => {
+    callback(WEBVIEW_PERMISSION_ALLOW.has(permission));
+  });
+
+  sess.setPermissionCheckHandler((_wc, permission) => WEBVIEW_PERMISSION_ALLOW.has(permission));
+
+  attachWebviewDisplayMediaHandler(sess);
+  attachWebAuthnAccountSelector(sess);
+}
+
+function parsePopupFeatures(features) {
+  const size = { width: 520, height: 720 };
+  if (!features || typeof features !== 'string') return size;
+  for (const part of features.split(',')) {
+    const [rawKey, rawVal] = part.trim().split('=');
+    const key = rawKey?.trim().toLowerCase();
+    const val = parseInt(String(rawVal || '').trim(), 10);
+    if (!Number.isFinite(val) || val <= 0) continue;
+    if (key === 'width' || key === 'innerwidth') size.width = val;
+    if (key === 'height' || key === 'innerheight') size.height = val;
+  }
+  return size;
+}
+
+function buildPopupWindowOptions(partition, features) {
+  const size = parsePopupFeatures(features);
+  return {
+    width: Math.min(Math.max(size.width, 420), 1200),
+    height: Math.min(Math.max(size.height, 520), 1000),
+    minWidth: 400,
+    minHeight: 500,
+    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    modal: false,
+    autoHideMenuBar: true,
+    title: 'Tim Workspaces',
+    webPreferences: {
+      partition: sanitizePartition(partition),
+      nodeIntegration: false,
+      contextIsolation: true,
+      sandbox: false,
+      disableBlinkFeatures: 'AutomationControlled'
+    }
+  };
+}
+
+function setupWebviewWindowOpenHandler(webContents) {
+  webContents.setWindowOpenHandler(({ url, features }) => {
+    if (!url || typeof url !== 'string') return { action: 'deny' };
+    if (url !== 'about:blank' && !url.startsWith('http://') && !url.startsWith('https://')) {
+      return { action: 'deny' };
+    }
+
+    const partition = webContents.session?.partition;
+    ensureWebviewSessionHandlers(webContents.session);
+
+    if (isAuthProviderUrl(url)) {
+      openEmbeddedAuthWindow(url, partition).then((finalUrl) => {
+        if (finalUrl && !webContents.isDestroyed()) {
+          webContents.loadURL(finalUrl);
+        }
+      });
+      return { action: 'deny' };
+    }
+
+    // Passkeys/OAuth: manter popup na mesma sessão (window.opener) — não abrir browser externo
+    return {
+      action: 'allow',
+      overrideBrowserWindowOptions: buildPopupWindowOptions(partition, features)
+    };
+  });
+
+  webContents.on('did-create-window', (childWindow) => {
+    if (!childWindow || childWindow.isDestroyed?.()) return;
+    childWindow.setMenuBarVisibility(false);
+    ensureWebviewSessionHandlers(childWindow.webContents.session);
+    setupWebviewWindowOpenHandler(childWindow.webContents);
+  });
+}
 
 // Darwin 24 = macOS 15 Sequoia+: system picker nativo trata tudo (callback não corre nessas versões)
 const SUPPORTS_SYSTEM_PICKER = process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 24;
@@ -451,21 +575,51 @@ function isGoogleAuthUrl(url) {
   }
 }
 
-function openGoogleAuthWindow(url, partition) {
+function isMicrosoftAuthUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const host = new URL(url).hostname.toLowerCase();
+    if (host.endsWith('.microsoftonline.com') || host === 'microsoftonline.com') return true;
+    if (host === 'login.live.com' || host.endsWith('.login.live.com')) return true;
+    if (host === 'login.microsoft.com') return true;
+    if (host === 'account.live.com' || host.endsWith('.account.live.com')) return true;
+    if (host === 'account.microsoft.com') return true;
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+function isAuthProviderUrl(url) {
+  return isGoogleAuthUrl(url) || isMicrosoftAuthUrl(url);
+}
+
+function embeddedAuthWindowTitle(url) {
+  if (isMicrosoftAuthUrl(url)) return 'Login Microsoft - Tim Workspaces';
+  if (isGoogleAuthUrl(url)) return 'Login Google - Tim Workspaces';
+  return 'Login - Tim Workspaces';
+}
+
+function openEmbeddedAuthWindow(url, partition) {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve(null);
   const authPartition = sanitizePartition(partition);
   return new Promise((resolve) => {
     const authWin = new BrowserWindow({
-      width: 480,
-      height: 700,
-      title: 'Login Google - Tim Workspaces',
+      width: 520,
+      height: 760,
+      title: embeddedAuthWindowTitle(url),
+      parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+      autoHideMenuBar: true,
       webPreferences: {
         partition: authPartition,
         nodeIntegration: false,
-        contextIsolation: true
+        contextIsolation: true,
+        sandbox: false,
+        disableBlinkFeatures: 'AutomationControlled'
       }
     });
-    authWin.setMenuBarVisibility(false);
+    ensureWebviewSessionHandlers(authWin.webContents.session);
+    setupWebviewWindowOpenHandler(authWin.webContents);
     try { authWin.loadURL(url); } catch { resolve(null); return; }
 
     let resolved = false;
@@ -478,13 +632,13 @@ function openGoogleAuthWindow(url, partition) {
       resolve(finalUrl || null);
     };
 
-    authWin.webContents.on('did-navigate', (e, navUrl) => {
-      if (!isGoogleAuthUrl(navUrl) && navUrl.startsWith('http')) {
+    authWin.webContents.on('did-navigate', (_e, navUrl) => {
+      if (!isAuthProviderUrl(navUrl) && navUrl.startsWith('http')) {
         onDone(navUrl);
       }
     });
-    authWin.webContents.on('did-navigate-in-page', (e, navUrl) => {
-      if (!isGoogleAuthUrl(navUrl) && navUrl.startsWith('http')) {
+    authWin.webContents.on('did-navigate-in-page', (_e, navUrl) => {
+      if (!isAuthProviderUrl(navUrl) && navUrl.startsWith('http')) {
         onDone(navUrl);
       }
     });
@@ -497,7 +651,12 @@ function openGoogleAuthWindow(url, partition) {
   });
 }
 
-ipcMain.handle('open-google-auth', (_, url, partition) => openGoogleAuthWindow(url, partition));
+// Alias legado (Google)
+function openGoogleAuthWindow(url, partition) {
+  return openEmbeddedAuthWindow(url, partition);
+}
+
+ipcMain.handle('open-google-auth', (_, url, partition) => openEmbeddedAuthWindow(url, partition));
 
 ipcMain.handle('toggle-fullscreen', () => {
   if (mainWindow && !mainWindow.isDestroyed()) {
@@ -571,35 +730,21 @@ ipcMain.handle('set-auto-launch', (_e, enabled) => {
 
 app.on('web-contents-created', (_, webContents) => {
   if (webContents.getType?.() === 'webview') {
-    const ses = webContents.session;
-
-    ses.setPermissionRequestHandler((_wc, permission, callback) => {
-      callback(WEBVIEW_PERMISSION_ALLOW.has(permission));
-    });
-
-    ses.setPermissionCheckHandler((_wc, permission) => WEBVIEW_PERMISSION_ALLOW.has(permission));
-
-    attachWebviewDisplayMediaHandler(ses);
-
-    webContents.setWindowOpenHandler(({ url }) => {
-      if (!url || typeof url !== 'string' || (!url.startsWith('http://') && !url.startsWith('https://'))) {
-        return { action: 'deny' };
-      }
-      if (isGoogleAuthUrl(url)) {
-        const partition = sanitizePartition(webContents.session?.partition);
-        openGoogleAuthWindow(url, partition).then((finalUrl) => {
-          if (finalUrl && !webContents.isDestroyed()) {
-            webContents.loadURL(finalUrl);
-          }
-        });
-      } else {
-        // Open external links in the system browser, not inside the webview
-        shell.openExternal(url);
-      }
-      return { action: 'deny' };
-    });
+    ensureWebviewSessionHandlers(webContents.session);
+    setupWebviewWindowOpenHandler(webContents);
   }
 });
+
+function configurePlatformWebAuthn() {
+  if (process.platform !== 'darwin' || typeof app.configureWebAuthn !== 'function') return;
+  app.configureWebAuthn({
+    touchID: {
+      keychainAccessGroup: WEBAUTHN_KEYCHAIN_GROUP,
+      promptReason: 'iniciar sessão em $1'
+    }
+  });
+  attachWebAuthnAccountSelector(session.defaultSession);
+}
 
 function createTrayIcon() {
   const iconPath = path.join(
@@ -651,6 +796,8 @@ function setupTray() {
 }
 
 app.whenReady().then(() => {
+  configurePlatformWebAuthn();
+
   if (process.platform === 'win32') app.setAppUserModelId('com.timworkspaces.app');
 
   if (process.platform === 'darwin') {

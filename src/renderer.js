@@ -1099,11 +1099,17 @@ function renderContentArea() {
     return wrap;
   }
 
-  function isGoogleAuthUrl(u) {
+  function isAuthProviderUrl(u) {
     if (!u || typeof u !== 'string') return false;
     try {
-      const url = new URL(u);
-      return url.hostname === 'accounts.google.com' || url.hostname.endsWith('.accounts.google.com');
+      const host = new URL(u).hostname.toLowerCase();
+      if (host === 'accounts.google.com' || host.endsWith('.accounts.google.com')) return true;
+      if (host.endsWith('.microsoftonline.com') || host === 'microsoftonline.com') return true;
+      if (host === 'login.live.com' || host.endsWith('.login.live.com')) return true;
+      if (host === 'login.microsoft.com') return true;
+      if (host === 'account.live.com' || host.endsWith('.account.live.com')) return true;
+      if (host === 'account.microsoft.com') return true;
+      return false;
     } catch {
       return false;
     }
@@ -1128,7 +1134,7 @@ function renderContentArea() {
     webview.useragent = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
     webview.className = 'w-full h-full border-0';
     webview.allowpopups = 'allowpopups';
-    webview.webpreferences = 'nativeWindowOpen=yes,contextIsolation=no';
+    webview.webpreferences = 'contextIsolation=no,disableBlinkFeatures=AutomationControlled';
     // 3.3 — preload dedicado para substituir window.Notification (deve ser definido antes de append ao DOM)
     if (window.electronAPI?.webviewPreloadPath) {
       webview.preload = window.electronAPI.webviewPreloadPath;
@@ -1160,7 +1166,7 @@ function renderContentArea() {
 
     webview.addEventListener('will-navigate', async (e) => {
       const targetUrl = e?.url;
-      if (!isGoogleAuthUrl(targetUrl) || typeof window.electronAPI?.openGoogleAuth !== 'function') return;
+      if (!isAuthProviderUrl(targetUrl) || typeof window.electronAPI?.openGoogleAuth !== 'function') return;
       try {
         if (typeof e.preventDefault === 'function') e.preventDefault();
       } catch (_) {}
