@@ -9,6 +9,7 @@
     "url": "https://github.com/renatoruis"
   },
   "main": "main.js",
+  "packageManager": "pnpm@10.33.0",
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
