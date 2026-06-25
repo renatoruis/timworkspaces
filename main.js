@@ -11,6 +11,9 @@ let tray = null;
 let isQuitting = false;
 
 const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+const AUTH_PRELOAD_PATH = path.join(__dirname, 'src', 'auth-preload.js');
+const { getMicrosoftWebAuthnBlockScript } = require('./src/microsoft-auth-guard');
+const MS_WEBAUTHN_BLOCK_SCRIPT = getMicrosoftWebAuthnBlockScript();
 
 // Permissões concedidas em webviews (request + check devem alinhar; senão o site re-pede notificação, tela, etc.)
 const WEBVIEW_PERMISSION_ALLOW = new Set([
@@ -111,9 +114,56 @@ function buildPopupWindowOptions(partition, features) {
       nodeIntegration: false,
       contextIsolation: true,
       sandbox: false,
+      preload: AUTH_PRELOAD_PATH,
       disableBlinkFeatures: 'AutomationControlled'
     }
   };
+}
+
+const msWebAuthnBypassSetup = new WeakSet();
+
+function injectMicrosoftWebAuthnBlockAllFrames(webContents) {
+  if (!webContents || webContents.isDestroyed?.()) return;
+  const injectFrame = (frame) => {
+    if (!frame) return;
+    let frameUrl = '';
+    try { frameUrl = frame.url || ''; } catch {}
+    if (frameUrl === 'about:blank') return;
+    try {
+      frame.executeJavaScript(MS_WEBAUTHN_BLOCK_SCRIPT, true).catch(() => {});
+    } catch {}
+  };
+  try {
+    injectFrame(webContents.mainFrame);
+    for (const frame of webContents.mainFrame.framesInSubtree) {
+      injectFrame(frame);
+    }
+  } catch {}
+}
+
+function setupMicrosoftWebAuthnBypass(webContents) {
+  if (!webContents || msWebAuthnBypassSetup.has(webContents)) return;
+  msWebAuthnBypassSetup.add(webContents);
+  const run = () => injectMicrosoftWebAuthnBlockAllFrames(webContents);
+  webContents.on('did-finish-load', run);
+  webContents.on('did-frame-finish-load', run);
+  webContents.on('did-navigate-in-page', run);
+}
+
+function setupAuthPopupWindow(childWindow) {
+  if (!childWindow || childWindow.isDestroyed?.()) return;
+  childWindow.setMenuBarVisibility(false);
+  childWindow.webContents.setUserAgent(CHROME_USER_AGENT);
+  ensureWebviewSessionHandlers(childWindow.webContents.session);
+  setupWebviewWindowOpenHandler(childWindow.webContents);
+  setupMicrosoftWebAuthnBypass(childWindow.webContents);
+  const injectBanner = () => {
+    if (isMicrosoftAuthUrl(childWindow.webContents.getURL())) {
+      injectAuthFallbackBanner(childWindow.webContents);
+    }
+  };
+  childWindow.webContents.on('did-finish-load', injectBanner);
+  childWindow.webContents.on('did-frame-finish-load', injectBanner);
 }
 
 function setupWebviewWindowOpenHandler(webContents) {
@@ -139,10 +189,7 @@ function setupWebviewWindowOpenHandler(webContents) {
   });
 
   webContents.on('did-create-window', (childWindow) => {
-    if (!childWindow || childWindow.isDestroyed?.()) return;
-    childWindow.setMenuBarVisibility(false);
-    ensureWebviewSessionHandlers(childWindow.webContents.session);
-    setupWebviewWindowOpenHandler(childWindow.webContents);
+    setupAuthPopupWindow(childWindow);
   });
 }
 
@@ -628,6 +675,7 @@ function isMicrosoftAuthUrl(url) {
     if (host === 'login.microsoft.com') return true;
     if (host === 'account.live.com' || host.endsWith('.account.live.com')) return true;
     if (host === 'account.microsoft.com') return true;
+    if (host === 'credential.login.microsoftonline.com') return true;
     return false;
   } catch {
     return false;
@@ -684,13 +732,14 @@ function openEmbeddedAuthWindow(url, partition) {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: false,
-        preload: path.join(__dirname, 'src', 'auth-preload.js'),
+        preload: AUTH_PRELOAD_PATH,
         disableBlinkFeatures: 'AutomationControlled'
       }
     });
     authWin.webContents.setUserAgent(CHROME_USER_AGENT);
     ensureWebviewSessionHandlers(authWin.webContents.session);
     setupWebviewWindowOpenHandler(authWin.webContents);
+    setupMicrosoftWebAuthnBypass(authWin.webContents);
 
     const onAuthPageLoad = () => {
       if (isMicrosoftAuthUrl(authWin.webContents.getURL())) {
@@ -813,6 +862,7 @@ app.on('web-contents-created', (_, webContents) => {
   if (webContents.getType?.() === 'webview') {
     ensureWebviewSessionHandlers(webContents.session);
     setupWebviewWindowOpenHandler(webContents);
+    setupMicrosoftWebAuthnBypass(webContents);
   }
 });
 

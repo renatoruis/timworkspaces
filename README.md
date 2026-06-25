@@ -85,7 +85,7 @@ Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
 O login Microsoft pode mostrar *Face, fingerprint, PIN or security key* e ficar preso — o Electron não completa WebAuthn da mesma forma que o Safari ou o Chrome.
 
-**Na v1.5.3+:** a app bloqueia passkey nas páginas de login Microsoft e oferece palavra-passe, Authenticator ou o botão **Abrir no navegador** no topo da janela de login.
+**Na v1.5.4+:** a app bloqueia passkey nas páginas de login Microsoft (incluindo iframes e popups OAuth) e oferece palavra-passe, Authenticator ou o botão **Abrir no navegador** no topo da janela de login.
 
 **Se ainda tiveres problemas:**
 
@@ -94,6 +94,10 @@ O login Microsoft pode mostrar *Face, fingerprint, PIN or security key* e ficar 
 3. Passkeys nativos (Touch ID) no macOS exigem build especial com provisioning profile Apple — não estão activos no instalador padrão.
 
 ## Changelog recente
+
+### v1.5.4
+
+- **Fix Teams / Microsoft (reforço):** bloqueio WebAuthn em todos os frames (iframes de login), popups OAuth com preload, e fallback `NotSupportedError` para forçar palavra-passe ou Authenticator.
 
 ### v1.5.3
 
