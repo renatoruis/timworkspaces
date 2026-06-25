@@ -93,6 +93,10 @@ O login Microsoft pode mostrar *Face, fingerprint, PIN or security key* e ficar 
 2. Usa o botão **Abrir no navegador**, conclui o login no Safari/Chrome e volta à app.
 3. Passkeys nativos (Touch ID) no macOS exigem build especial com provisioning profile Apple — não estão activos no instalador padrão.
 
+### CI macOS falha com HTTP 403 na notarização
+
+Mensagem *A required agreement is missing or has expired* → entra em [developer.apple.com/account](https://developer.apple.com/account), secção **Agreements**, e assina os acordos pendentes. Depois define a variável de repositório `ENABLE_MAC_NOTARIZE=true` e re-executa o workflow. Sem notarização (variável ausente ou `false`), o `.dmg` é assinado mas o macOS pode pedir confirmação extra na primeira abertura.
+
 ## Changelog recente
 
 ### v1.5.4

@@ -73,6 +73,11 @@ jobs:
             unset CSC_LINK CSC_KEY_PASSWORD
             export CSC_IDENTITY_AUTO_DISCOVERY=false
           fi
+          # Notarização só com ENABLE_MAC_NOTARIZE=true (requer acordos Apple Developer em vigor)
+          if [ "${{ vars.ENABLE_MAC_NOTARIZE }}" != "true" ]; then
+            echo "Notarização desativada (defina ENABLE_MAC_NOTARIZE=true após assinar acordos em developer.apple.com)"
+            unset APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+          fi
           pnpm run build -- --${{ matrix.platform }} --publish never
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
