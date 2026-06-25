@@ -10,6 +10,8 @@ let mainWindow = null;
 let tray = null;
 let isQuitting = false;
 
+const CHROME_USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/138.0.0.0 Safari/537.36';
+
 // Permissões concedidas em webviews (request + check devem alinhar; senão o site re-pede notificação, tela, etc.)
 const WEBVIEW_PERMISSION_ALLOW = new Set([
   'media',
@@ -458,6 +460,19 @@ ipcMain.handle('open-external', async (_, targetUrl) => {
   return false;
 });
 
+ipcMain.handle('open-external-auth-url', async (event) => {
+  try {
+    const wc = event.sender;
+    if (!wc || wc.isDestroyed?.()) return false;
+    const targetUrl = wc.getURL();
+    if (targetUrl && typeof targetUrl === 'string' && targetUrl.startsWith('http')) {
+      await shell.openExternal(targetUrl);
+      return true;
+    }
+  } catch {}
+  return false;
+});
+
 ipcMain.handle('get-app-version', () => app.getVersion());
 
 ipcMain.handle('get-platform-info', () => ({
@@ -629,13 +644,38 @@ function embeddedAuthWindowTitle(url) {
   return 'Login - Tim Workspaces';
 }
 
+function injectAuthFallbackBanner(webContents) {
+  if (!webContents || webContents.isDestroyed?.()) return;
+  const script = `(function() {
+    if (document.getElementById('tw-auth-fallback')) return;
+    const host = location.hostname.toLowerCase();
+    const isMs = host.endsWith('.microsoftonline.com') || host === 'login.microsoft.com'
+      || host === 'login.live.com' || host.endsWith('.login.live.com')
+      || host === 'account.live.com' || host.endsWith('.account.live.com')
+      || host === 'account.microsoft.com';
+    if (!isMs) return;
+    const bar = document.createElement('div');
+    bar.id = 'tw-auth-fallback';
+    bar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#1d1b25;color:#ecebf3;padding:8px 12px;font:13px/1.4 -apple-system,BlinkMacSystemFont,sans-serif;display:flex;align-items:center;gap:10px;border-bottom:1px solid rgba(162,150,196,.2);box-sizing:border-box;';
+    bar.innerHTML = '<span style="flex:1">Sem passkey? Use palavra-passe ou abra no navegador.</span><button type="button" id="tw-auth-external" style="flex-shrink:0;padding:6px 12px;border:none;border-radius:8px;background:#8b7cf6;color:#fff;font-size:12px;font-weight:600;cursor:pointer">Abrir no navegador</button>';
+    document.documentElement.appendChild(bar);
+    if (document.body) document.body.style.paddingTop = '44px';
+    document.getElementById('tw-auth-external').addEventListener('click', function() {
+      if (window.authPreloadAPI && window.authPreloadAPI.openExternalAuthUrl) {
+        window.authPreloadAPI.openExternalAuthUrl();
+      }
+    });
+  })();`;
+  webContents.executeJavaScript(script).catch(() => {});
+}
+
 function openEmbeddedAuthWindow(url, partition) {
   if (!url || typeof url !== 'string' || !url.startsWith('http')) return Promise.resolve(null);
   const authPartition = sanitizePartition(partition);
   return new Promise((resolve) => {
     const authWin = new BrowserWindow({
       width: 520,
-      height: 760,
+      height: 820,
       title: embeddedAuthWindowTitle(url),
       parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
       autoHideMenuBar: true,
@@ -644,11 +684,22 @@ function openEmbeddedAuthWindow(url, partition) {
         nodeIntegration: false,
         contextIsolation: true,
         sandbox: false,
+        preload: path.join(__dirname, 'src', 'auth-preload.js'),
         disableBlinkFeatures: 'AutomationControlled'
       }
     });
+    authWin.webContents.setUserAgent(CHROME_USER_AGENT);
     ensureWebviewSessionHandlers(authWin.webContents.session);
     setupWebviewWindowOpenHandler(authWin.webContents);
+
+    const onAuthPageLoad = () => {
+      if (isMicrosoftAuthUrl(authWin.webContents.getURL())) {
+        injectAuthFallbackBanner(authWin.webContents);
+      }
+    };
+    authWin.webContents.on('did-finish-load', onAuthPageLoad);
+    authWin.webContents.on('did-navigate-in-page', onAuthPageLoad);
+
     try { authWin.loadURL(url); } catch { resolve(null); return; }
 
     let resolved = false;
@@ -657,6 +708,7 @@ function openEmbeddedAuthWindow(url, partition) {
       resolved = true;
       authWin.webContents.removeAllListeners('did-navigate');
       authWin.webContents.removeAllListeners('did-navigate-in-page');
+      authWin.webContents.removeAllListeners('did-finish-load');
       if (!authWin.isDestroyed()) { try { authWin.close(); } catch {} }
       resolve(finalUrl || null);
     };

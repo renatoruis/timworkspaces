@@ -79,7 +79,30 @@ xattr -cr /Applications/Tim\ Workspaces.app
 
 Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
+## Resolução de problemas
+
+### Microsoft Teams pede passkey e não avança
+
+O login Microsoft pode mostrar *Face, fingerprint, PIN or security key* e ficar preso — o Electron não completa WebAuthn da mesma forma que o Safari ou o Chrome.
+
+**Na v1.5.3+:** a app bloqueia passkey nas páginas de login Microsoft e oferece palavra-passe, Authenticator ou o botão **Abrir no navegador** no topo da janela de login.
+
+**Se ainda tiveres problemas:**
+
+1. Na janela de login, procura **Sign in another way** / **Outras formas de iniciar sessão**.
+2. Usa o botão **Abrir no navegador**, conclui o login no Safari/Chrome e volta à app.
+3. Passkeys nativos (Touch ID) no macOS exigem build especial com provisioning profile Apple — não estão activos no instalador padrão.
+
 ## Changelog recente
+
+### v1.5.3
+
+- **Fix Teams / Microsoft:** bloqueia WebAuthn/passkey nas páginas de login Microsoft para forçar palavra-passe ou Authenticator; banner **Abrir no navegador** na janela de auth; User-Agent Chrome na janela de login.
+
+### v1.5.2
+
+- Download directo do instalador no modal de atualização; fix atalhos Cmd+1–9; polish tema claro, zoom e atalhos no menu.
+- Links `target=_blank` abrem no browser externo (fix popups que quebravam a app).
 
 ### v1.5.1
 
@@ -87,9 +110,8 @@ Instale o `.deb` (Ubuntu/Debian) ou use `dpkg -i` / gerenciador de pacotes.
 
 ### v1.5.0
 
-- **Passkeys / WebAuthn** (Teams, Microsoft, etc.): Electron 42 + `configureWebAuthn` com Touch ID no macOS.
-- Login **Microsoft** em janela dedicada (como Google); popups de auth na mesma sessão.
-- Build **macOS assinado e notarizado** via CI (`ENABLE_MAC_SIGNING`).
+- Electron 42; login **Microsoft** em janela dedicada (como Google); popups de auth na mesma sessão.
+- Build **macOS assinado e notarizado** via CI (`ENABLE_MAC_SIGNING`). Passkeys Touch ID requerem build especial (não incluído por defeito).
 
 ### v1.4.1
 

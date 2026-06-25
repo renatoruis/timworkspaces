@@ -35,6 +35,5 @@ try {
 } catch (e) {}
 
 // Alguns sites bloqueiam passkey quando detectam automação (Electron expõe navigator.webdriver)
-try {
-  Object.defineProperty(navigator, 'webdriver', { get: () => false, configurable: true });
-} catch (e) {}
+const { applyMicrosoftAuthGuard } = require('./microsoft-auth-guard');
+applyMicrosoftAuthGuard();
