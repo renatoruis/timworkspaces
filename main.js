@@ -4,8 +4,21 @@ const fs = require('fs');
 const crypto = require('crypto');
 const os = require('os');
 
+const storage = require('./src/storage-manager');
+
 app.setName('Tim Workspaces');
 if (process.platform === 'linux') process.title = 'Tim Workspaces';
+
+// Limite do HTTP cache por sessão/partição (sem isto cresce sem teto)
+app.commandLine.appendSwitch('disk-cache-size', String(150 * 1024 * 1024));
+
+// Darwin 22 = macOS 13: loopback de áudio do sistema via ScreenCaptureKit
+const SUPPORTS_MAC_AUDIO_LOOPBACK = process.platform === 'darwin' && Number(os.release().split('.')[0]) >= 22;
+if (SUPPORTS_MAC_AUDIO_LOOPBACK) {
+  app.commandLine.appendSwitch('enable-features', 'MacLoopbackAudioForScreenShare,MacSckSystemAudioLoopbackOverride,MacCatapLoopbackAudioForScreenShare');
+} else if (process.platform === 'linux') {
+  app.commandLine.appendSwitch('enable-features', 'WebRTCPipeWireCapturer');
+}
 let mainWindow = null;
 let tray = null;
 let isQuitting = false;
@@ -28,8 +41,14 @@ const WEBVIEW_PERMISSION_ALLOW = new Set([
   'speaker-selection',
   'window-management',
   'clipboard-read',
-  'clipboard-sanitized-write'
+  'clipboard-sanitized-write',
+  'hid',
+  'usb',
+  'serial'
 ]);
+
+// Headsets (WebHID: atender/mute no Teams/Meet), USB e série
+const DEVICE_TYPES_ALLOW = new Set(['hid', 'usb', 'serial']);
 
 const configuredWebviewSessions = new WeakSet();
 const configuredWebAuthnSelectors = new WeakSet();
@@ -79,9 +98,80 @@ function ensureWebviewSessionHandlers(sess) {
   });
 
   sess.setPermissionCheckHandler((_wc, permission) => WEBVIEW_PERMISSION_ALLOW.has(permission));
+  sess.setDevicePermissionHandler((details) => DEVICE_TYPES_ALLOW.has(details.deviceType));
 
   attachWebviewDisplayMediaHandler(sess);
   attachWebAuthnAccountSelector(sess);
+  attachDeviceSelectors(sess);
+}
+
+function deviceLabel(d, i) {
+  return d.name || d.productName || d.deviceName || d.displayName || d.portName || `Dispositivo ${i + 1}`;
+}
+
+// Único dispositivo → escolhe direto; vários → diálogo nativo; nenhum → cancela
+async function chooseDevice(list, title, getId) {
+  if (!Array.isArray(list) || !list.length) return null;
+  if (list.length === 1) return getId(list[0]);
+  const labels = list.map(deviceLabel);
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  const { response } = await dialog.showMessageBox(parent, {
+    type: 'question',
+    title,
+    message: title,
+    buttons: [...labels, 'Cancelar'],
+    cancelId: labels.length,
+    noLink: true
+  });
+  return response >= 0 && response < list.length ? getId(list[response]) : null;
+}
+
+function attachDeviceSelectors(sess) {
+  sess.on('select-hid-device', (event, details, callback) => {
+    event.preventDefault();
+    chooseDevice(details.deviceList, 'Escolher dispositivo HID', (d) => d.deviceId)
+      .then((id) => callback(id || undefined))
+      .catch(() => callback());
+  });
+  sess.on('select-usb-device', (event, details, callback) => {
+    event.preventDefault();
+    chooseDevice(details.deviceList, 'Escolher dispositivo USB', (d) => d.deviceId)
+      .then((id) => callback(id || undefined))
+      .catch(() => callback());
+  });
+  sess.on('select-serial-port', (event, portList, _wc, callback) => {
+    event.preventDefault();
+    chooseDevice(portList, 'Escolher porta série', (p) => p.portId)
+      .then((id) => callback(id || ''))
+      .catch(() => callback(''));
+  });
+}
+
+const BLUETOOTH_SCAN_MS = 4000;
+
+// O evento repete-se durante a procura: junta a lista e decide uma vez
+function attachBluetoothSelector(webContents) {
+  let pending = null;
+  webContents.on('select-bluetooth-device', (event, devices, callback) => {
+    event.preventDefault();
+    if (pending) {
+      pending.devices = devices;
+      pending.callback = callback;
+      return;
+    }
+    pending = { devices, callback };
+    setTimeout(async () => {
+      const { devices: list, callback: cb } = pending;
+      try {
+        const id = await chooseDevice(list, 'Escolher dispositivo Bluetooth', (d) => d.deviceId);
+        cb(id || '');
+      } catch {
+        cb('');
+      } finally {
+        pending = null;
+      }
+    }, BLUETOOTH_SCAN_MS);
+  });
 }
 
 function parsePopupFeatures(features) {
@@ -220,56 +310,82 @@ async function ensureScreenPermission() {
   return false;
 }
 
-function showSourcePicker(sources, request) {
+const SUPPORTS_AUDIO_LOOPBACK = process.platform === 'win32' || SUPPORTS_MAC_AUDIO_LOOPBACK;
+
+// Um pedido por janela de picker (chave = webContents.id), permite pedidos concorrentes
+const pickerSessions = new Map();
+
+function fetchCaptureSources() {
+  return desktopCapturer.getSources({
+    types: ['screen', 'window'],
+    thumbnailSize: { width: 400, height: 250 },
+    fetchWindowIcons: true
+  });
+}
+
+function serializeSources(sources) {
+  return sources.map((s) => ({
+    id: s.id,
+    name: s.name,
+    type: s.id.startsWith('screen:') ? 'screen' : 'window',
+    thumbnail: s.thumbnail.isEmpty() ? null : s.thumbnail.toDataURL(),
+    appIcon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null
+  }));
+}
+
+ipcMain.handle('picker:get-sources', async (event, { refresh = false } = {}) => {
+  const entry = pickerSessions.get(event.sender.id);
+  if (!entry) return null;
+  if (refresh) entry.sourcesPromise = fetchCaptureSources();
+  entry.sources = await entry.sourcesPromise;
+  return {
+    sources: serializeSources(entry.sources),
+    audioRequested: entry.audioRequested,
+    audioSupported: SUPPORTS_AUDIO_LOOPBACK,
+    platform: process.platform,
+    theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
+  };
+});
+ipcMain.on('picker:choose', (event, choice) => pickerSessions.get(event.sender.id)?.finish(choice));
+ipcMain.on('picker:cancel', (event) => pickerSessions.get(event.sender.id)?.finish(null));
+
+// Abre a janela logo (skeleton) enquanto as thumbnails são geradas
+function showSourcePicker(request) {
   return new Promise((resolve) => {
     const win = new BrowserWindow({
       parent: mainWindow,
       modal: true,
       frame: false,
-      width: 760,
-      height: 560,
+      width: 780,
+      height: 580,
       resizable: false,
+      show: false,
+      backgroundColor: nativeTheme.shouldUseDarkColors ? '#15141b' : '#f7f6fb',
       webPreferences: {
         preload: path.join(__dirname, 'src', 'picker', 'picker-preload.js'),
         contextIsolation: true,
         nodeIntegration: false
       }
     });
-
-    const payload = sources.map((s) => ({
-      id: s.id,
-      name: s.name,
-      type: s.id.startsWith('screen:') ? 'screen' : 'window',
-      thumbnail: s.thumbnail.toDataURL(),
-      appIcon: s.appIcon && !s.appIcon.isEmpty() ? s.appIcon.toDataURL() : null
-    }));
-
+    const wcId = win.webContents.id;
     let settled = false;
 
-    const getHandler = () => ({
-      sources: payload,
+    const entry = {
       audioRequested: !!request.audioRequested,
-      platform: process.platform,
-      theme: nativeTheme.shouldUseDarkColors ? 'dark' : 'light'
-    });
-    ipcMain.handle('picker:get-sources', getHandler);
-
-    const onChoose = (_e, choice) => finish(choice);
-    const onCancel = () => finish(null);
-    ipcMain.once('picker:choose', onChoose);
-    ipcMain.once('picker:cancel', onCancel);
-    win.on('closed', () => finish(null));
-
-    function finish(result) {
-      if (settled) return;
-      settled = true;
-      try { ipcMain.removeHandler('picker:get-sources'); } catch {}
-      ipcMain.removeListener('picker:choose', onChoose);
-      ipcMain.removeListener('picker:cancel', onCancel);
-      if (!win.isDestroyed()) win.close();
-      resolve(result);
-    }
-
+      sourcesPromise: fetchCaptureSources(),
+      sources: [],
+      finish(choice) {
+        if (settled) return;
+        settled = true;
+        pickerSessions.delete(wcId);
+        const source = choice ? entry.sources.find((s) => s.id === choice.id) : null;
+        if (!win.isDestroyed()) win.close();
+        resolve(source ? { source, withAudio: !!choice.withAudio } : null);
+      }
+    };
+    pickerSessions.set(wcId, entry);
+    win.once('ready-to-show', () => win.show());
+    win.on('closed', () => entry.finish(null));
     win.loadFile(path.join(__dirname, 'src', 'picker', 'picker.html'));
   });
 }
@@ -287,18 +403,7 @@ function attachWebviewDisplayMediaHandler(session) {
         }
       }
 
-      const sources = await desktopCapturer.getSources({
-        types: ['screen', 'window'],
-        thumbnailSize: { width: 320, height: 200 },
-        fetchWindowIcons: true
-      });
-
-      if (!sources.length) {
-        callback({});
-        return;
-      }
-
-      const choice = await showSourcePicker(sources, request);
+      const choice = await showSourcePicker(request);
 
       if (!choice) {
         callback({});
@@ -306,9 +411,8 @@ function attachWebviewDisplayMediaHandler(session) {
         return;
       }
 
-      const video = sources.find((s) => s.id === choice.id);
-      const streams = { video };
-      if (request.audioRequested && choice.withAudio && process.platform === 'win32') {
+      const streams = { video: choice.source };
+      if (request.audioRequested && choice.withAudio && SUPPORTS_AUDIO_LOOPBACK) {
         streams.audio = 'loopback';
       }
       callback(streams);
@@ -522,6 +626,9 @@ ipcMain.handle('open-external-auth-url', async (event) => {
 
 ipcMain.handle('get-app-version', () => app.getVersion());
 
+const WEBVIEW_PRELOAD_URL = require('url').pathToFileURL(path.join(__dirname, 'src', 'webview-preload.js')).href;
+ipcMain.on('get-webview-preload-path', (event) => { event.returnValue = WEBVIEW_PRELOAD_URL; });
+
 ipcMain.handle('get-platform-info', () => ({
   platform: process.platform,
   shouldUseDarkColors: nativeTheme.shouldUseDarkColors
@@ -649,6 +756,26 @@ ipcMain.handle('get-cached-icon', async (_e, url) => {
     return null;
   }
 });
+
+// --- Armazenamento por serviço ---
+const isIdList = (ids) => Array.isArray(ids) && ids.every((id) => typeof id === 'string');
+
+ipcMain.handle('storage:prune-orphans', async (_e, validIds) => {
+  if (!isIdList(validIds)) return 0;
+  return storage.pruneOrphanPartitions(validIds);
+});
+ipcMain.handle('storage:clear-partition', async (_e, id) => {
+  if (typeof id !== 'string' || !id) return false;
+  await storage.clearServicePartition(id);
+  return true;
+});
+ipcMain.handle('storage:clear-cache', async (_e, id) => {
+  if (typeof id === 'string' && id) await storage.clearServiceCache(id);
+  else await storage.clearAllCaches();
+  return true;
+});
+ipcMain.handle('storage:get-usage', async (_e, ids) => storage.getUsage(isIdList(ids) ? ids : []));
+ipcMain.handle('storage:run-maintenance', () => storage.runMaintenance({ iconCacheDir: ICON_CACHE_DIR, force: true }));
 
 // Janela separada para login Google (evita bloqueio "browser may not be secure")
 const GOOGLE_AUTH_PARTITION = 'persist:timworkspaces';
@@ -863,6 +990,7 @@ app.on('web-contents-created', (_, webContents) => {
     ensureWebviewSessionHandlers(webContents.session);
     setupWebviewWindowOpenHandler(webContents);
     setupMicrosoftWebAuthnBypass(webContents);
+    attachBluetoothSelector(webContents);
   }
 });
 
@@ -953,6 +1081,11 @@ app.whenReady().then(() => {
   Menu.setApplicationMenu(buildMenu());
   createWindow();
   setupTray();
+
+  storage.runMaintenance({
+    iconCacheDir: ICON_CACHE_DIR,
+    force: process.env.TIMWORKSPACES_FORCE_MAINTENANCE === '1'
+  }).catch(() => {});
 
   // 3.4 — atalho global toggle visibilidade
   try {

@@ -40,6 +40,17 @@
     .service-row.dragging { opacity: 0.5; }
     .service-row.drag-over { border-radius: 12px; background: var(--accent-soft); }
     .service-row.active-service { background: var(--accent-soft); box-shadow: inset 3px 0 0 0 var(--accent); }
+    .service-row.is-hibernated .service-icon-img { opacity: .45; filter: grayscale(.6); transition: opacity .2s, filter .2s; }
+    .service-row.is-hibernated:hover .service-icon-img { opacity: .8; filter: none; }
+    .service-row.is-hibernated .sidebar-label { opacity: .65; }
+    .media-dot { position:absolute; bottom:-3px; left:-3px; width:9px; height:9px; border-radius:50%; background:#22c55e; box-shadow:0 0 0 1.5px var(--bg); pointer-events:none; }
+    .media-dot.is-screen { background: var(--danger); animation: mediaPulse 1.6s ease-in-out infinite; }
+    @keyframes mediaPulse { 0%,100% { opacity: 1; } 50% { opacity: .45; } }
+    #toolbar-media-pill { transition: opacity .2s ease-out, transform .2s ease-out; }
+    #toolbar-media-pill.hidden-pill { opacity: 0; transform: translateY(-2px); pointer-events: none; position: absolute; }
+    .storage-row:hover .storage-clear-btn { opacity: 1; }
+    [data-theme="light"] #storage-section .storage-row { color: var(--text-muted) !important; }
+    [data-theme="light"] #hibernate-select { background-color: var(--surface-raised) !important; color: var(--text) !important; border-color: var(--border) !important; }
     #modal, #modal-delete, #modal-star, #modal-coffee, #modal-update, #modal-menu { display: none; }
     #modal.modal-open, #modal-delete.modal-open, #modal-star.modal-open, #modal-coffee.modal-open, #modal-update.modal-open, #modal-menu.modal-open { display: flex !important; }
     #modal-palette.modal-open { display: flex !important; }
@@ -253,7 +264,7 @@
 
   <div id="modal-menu" class="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="modal-menu-title">
     <div id="modal-menu-overlay" class="absolute inset-0 bg-black/50 backdrop-blur-sm"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm shadow-2xl" style="background-color:var(--surface)">
+    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[320px] max-w-sm max-h-[90vh] overflow-y-auto shadow-2xl" style="background-color:var(--surface)">
       <h3 id="modal-menu-title" class="text-lg font-semibold text-zinc-100 mb-4">O que mais?</h3>
       <div class="flex flex-col gap-2">
         <button type="button" id="menu-option-star" class="menu-option-card w-full px-4 py-3 text-left text-sm text-zinc-300 hover:bg-zinc-700/50 hover:text-zinc-100 rounded-xl border border-zinc-600/30 flex items-center gap-3 transition-colors">
@@ -290,6 +301,25 @@
       <div class="mt-3 pt-3 border-t border-zinc-600/40 flex items-center justify-between gap-3">
         <label for="auto-launch-toggle" class="text-xs font-medium text-zinc-400 cursor-pointer select-none">Iniciar com o sistema</label>
         <input type="checkbox" id="auto-launch-toggle" class="w-4 h-4 accent-violet-500 cursor-pointer" />
+      </div>
+      <div class="mt-3 pt-3 border-t border-zinc-600/40 flex items-center justify-between gap-3">
+        <label for="hibernate-select" class="text-xs font-medium text-zinc-400 select-none" title="Serviços inativos são descarregados para poupar memória. Mensageiros e chamadas ativas ficam sempre ligados.">Hibernar inativos após</label>
+        <select id="hibernate-select" class="px-2 py-1 rounded-lg text-xs text-zinc-300 border border-zinc-600/30 transition-colors" style="background-color:var(--surface-raised)">
+          <option value="5">5 min</option>
+          <option value="15">15 min</option>
+          <option value="30">30 min</option>
+          <option value="60">1 hora</option>
+          <option value="0">Nunca</option>
+        </select>
+      </div>
+      <div id="storage-section" class="mt-3 pt-3 border-t border-zinc-600/40">
+        <div class="flex items-center justify-between mb-2">
+          <p class="text-xs font-medium text-zinc-400">Armazenamento</p>
+          <span id="storage-total" class="text-[11px] text-zinc-500 tabular-nums" title="Espaço total usado pela app">…</span>
+        </div>
+        <div id="storage-list" class="max-h-36 overflow-y-auto space-y-0.5 pr-1"></div>
+        <button type="button" id="storage-clear-all" class="mt-2 w-full px-3 py-2 rounded-xl text-xs font-medium text-zinc-300 hover:text-zinc-100 hover:bg-zinc-700/50 border border-zinc-600/30 transition-colors disabled:opacity-50 disabled:cursor-wait">Limpar cache de todos</button>
+        <p class="mt-1.5 text-[10px] text-zinc-500">Não termina sessões nem apaga conversas.</p>
       </div>
       <button type="button" id="modal-menu-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>

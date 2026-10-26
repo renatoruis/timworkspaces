@@ -9,20 +9,20 @@
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root, [data-theme="dark"] {
-      --bg: #212124;
-      --surface: #18181b;
-      --surface-raised: #2a2a2e;
-      --border: #2e2e32;
-      --border-strong: #3f3f46;
-      --text: #e8e8ea;
-      --text-muted: #71717a;
-      --text-dim: #a1a1aa;
-      --label: #d4d4d8;
-      --accent: #0ea5e9;
-      --accent-hover: #0284c7;
-      --accent-soft: #0c2d3f;
-      --btn-secondary: #3f3f46;
-      --btn-secondary-hover: #52525b;
+      --bg: #15141b;
+      --surface: #1d1b25;
+      --surface-raised: #272433;
+      --border: rgba(162,150,196,.13);
+      --border-strong: rgba(162,150,196,.22);
+      --text: #ecebf3;
+      --text-muted: #787488;
+      --text-dim: #a6a2b6;
+      --label: #d6d3e2;
+      --accent: #8b7cf6;
+      --accent-hover: #a594f9;
+      --accent-soft: rgba(139,124,246,.16);
+      --btn-secondary: #312d3f;
+      --btn-secondary-hover: #3b3650;
     }
 
     [data-theme="light"] {
@@ -99,30 +99,59 @@
     }
 
     .card {
+      display: block;
+      width: 100%;
+      padding: 0;
+      text-align: left;
+      font: inherit;
+      color: inherit;
       background: var(--surface-raised);
       border: 2px solid var(--border-strong);
-      border-radius: 8px;
+      border-radius: 10px;
       overflow: hidden;
       cursor: pointer;
-      transition: border-color 0.15s, background 0.15s;
+      outline: none;
+      transition: border-color 0.15s, background 0.15s, transform 0.15s;
     }
 
-    .card:hover {
-      border-color: var(--text-dim);
-    }
+    .card:hover { border-color: var(--text-dim); transform: translateY(-1px); }
+    .card:focus-visible { box-shadow: 0 0 0 3px var(--accent-soft); }
 
     .card.selected {
       border-color: var(--accent);
       background: var(--accent-soft);
     }
 
-    .card img:first-child {
+    .card .thumb {
       width: 100%;
       aspect-ratio: 16 / 9;
-      object-fit: cover;
+      object-fit: contain;
       display: block;
       background: var(--surface);
     }
+
+    .card.skeleton { cursor: default; pointer-events: none; }
+    .card.skeleton .thumb, .sk-line {
+      background: linear-gradient(90deg, var(--surface) 0%, var(--border-strong) 50%, var(--surface) 100%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s ease-in-out infinite;
+    }
+    .sk-line { display: block; height: 10px; width: 60%; border-radius: 4px; margin: 3px 0; }
+    @keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+    #empty-state { display: none; text-align: center; color: var(--text-muted); padding: 48px 0; }
+
+    header { display: flex; align-items: center; justify-content: space-between; }
+    #btn-refresh {
+      -webkit-app-region: no-drag;
+      padding: 5px 10px;
+      font-size: 12px;
+      background: transparent;
+      color: var(--text-dim);
+      border: 1px solid var(--border-strong);
+    }
+    #btn-refresh:hover:not(:disabled) { color: var(--text); background: var(--btn-secondary); }
+    #btn-refresh:disabled { opacity: .5; cursor: wait; }
 
     .card-footer {
       display: flex;
@@ -209,9 +238,11 @@
 <body>
   <header>
     <h1>Escolher o que partilhar</h1>
+    <button id="btn-refresh" type="button" title="Atualizar lista de ecrãs e janelas">Atualizar</button>
   </header>
 
   <div class="content">
+    <p id="empty-state">Nenhum ecrã ou janela disponível. Verifique a permissão de gravação de ecrã.</p>
     <div id="screens-group">
       <p class="section-label">Ecrãs</p>
       <div class="grid" id="screens-list"></div>

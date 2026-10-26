@@ -34,8 +34,17 @@ const ACTIVE_SERVICE_KEY = 'timworkspaces-active-service';
 const ZOOM_KEY = 'timworkspaces-zoom';
 const CACHE_MAX_KEY = 'timworkspaces-cache-max';
 
-let WEBVIEW_CACHE_MAX = (() => { try { const v = parseInt(localStorage.getItem('timworkspaces-cache-max'), 10); return (v > 0 && v <= 50) ? v : 10; } catch { return 10; } })();
+const HIBERNATE_KEY = 'timworkspaces-hibernate-min';
+
+let WEBVIEW_CACHE_MAX = (() => { try { const v = parseInt(localStorage.getItem(CACHE_MAX_KEY), 10); return (v > 0 && v <= 50) ? v : 6; } catch { return 6; } })();
 const webviewAccessOrder = []; // tracks access order, most recent last
+// 0 = nunca hibernar
+let hibernateMinutes = (() => { try { const v = parseInt(localStorage.getItem(HIBERNATE_KEY), 10); return Number.isFinite(v) && v >= 0 ? v : 15; } catch { return 15; } })();
+const hibernatedIds = new Set();
+const hibernatedUrls = new Map(); // serviceId -> último URL antes de hibernar
+const mediaStates = new Map(); // serviceId -> { screen, mic, cam }
+// Mensageiros mantêm-se vivos por omissão para não perder notificações
+const KEEP_ALIVE_HOSTS = ['whatsapp.com', 'slack.com', 'teams.microsoft.com', 'teams.live.com', 'telegram.org', 'discord.com', 'mail.google.com', 'chat.google.com', 'outlook.live.com', 'outlook.office.com', 'messenger.com'];
 
 let services = [];
 let activeServiceId = null;
@@ -203,6 +212,21 @@ function getFaviconUrl(url) {
   }
 }
 
+const iconDataCache = new Map(); // url -> data URL (memória, evita IPC + disco a cada render)
+const iconRequests = new Map(); // url -> Promise em curso
+
+function loadCachedIcon(url) {
+  if (!url || !url.startsWith('https://') || !window.electronAPI?.getCachedIcon) return Promise.resolve(null);
+  if (iconDataCache.has(url)) return Promise.resolve(iconDataCache.get(url));
+  if (!iconRequests.has(url)) {
+    iconRequests.set(url, window.electronAPI.getCachedIcon(url)
+      .then(dataUrl => { if (dataUrl) iconDataCache.set(url, dataUrl); return dataUrl; })
+      .catch(() => null)
+      .finally(() => iconRequests.delete(url)));
+  }
+  return iconRequests.get(url);
+}
+
 function getServiceIconUrl(service) {
   if (service.customIcon && typeof service.customIcon === 'string' && service.customIcon.startsWith('data:')) {
     return service.customIcon;
@@ -291,7 +315,7 @@ function toggleMuteService(id) {
   if (mutedServices.has(id)) mutedServices.delete(id);
   else mutedServices.add(id);
   saveMuteState();
-  render();
+  renderSidebar();
 }
 
 function toggleDisableService(id) {
@@ -303,6 +327,8 @@ function toggleDisableService(id) {
   if (!wasDisabled) {
     // Disabling: free memory by destroying the webview
     removeFromWebviewCache(id);
+    hibernatedIds.delete(id);
+    hibernatedUrls.delete(id);
     const orderIdx = webviewAccessOrder.indexOf(id);
     if (orderIdx !== -1) webviewAccessOrder.splice(orderIdx, 1);
     // If this was the active service, switch to the first enabled one
@@ -401,7 +427,74 @@ function removeFromWebviewCache(serviceId) {
   webviewCache.delete(serviceId);
   if (activeWebview === cached.webview) activeWebview = null;
   notificationCounts.delete(serviceId);
+  mediaStates.delete(serviceId);
   pushTotalUnread();
+  if (serviceId === activeServiceId) updateMediaPill();
+}
+
+function setMediaState(serviceId, state) {
+  const next = { screen: !!state.screen, mic: !!state.mic, cam: !!state.cam };
+  if (next.screen || next.mic || next.cam) mediaStates.set(serviceId, next);
+  else mediaStates.delete(serviceId);
+  updateServiceRowState(serviceId);
+  if (serviceId === activeServiceId) updateMediaPill();
+}
+
+function updateMediaPill() {
+  const pill = document.getElementById('toolbar-media-pill');
+  if (!pill) return;
+  const m = mediaStates.get(activeServiceId);
+  const label = document.getElementById('toolbar-media-label');
+  const stopBtn = document.getElementById('toolbar-media-stop');
+  pill.classList.toggle('hidden-pill', !m);
+  if (!m) return;
+  const parts = [];
+  if (m.screen) parts.push('A partilhar tela');
+  if (m.cam) parts.push('Câmara');
+  if (m.mic) parts.push('Microfone');
+  if (label) label.textContent = parts.join(' · ');
+  pill.querySelector('.media-dot')?.classList.toggle('is-screen', m.screen);
+  if (stopBtn) stopBtn.classList.toggle('hidden', !m.screen);
+}
+
+function stopActiveScreenShare() {
+  activeWebview?.executeJavaScript('window.__twStopScreenShare && window.__twStopScreenShare()').catch(() => {});
+}
+
+function hasActiveMedia(serviceId) {
+  const m = mediaStates.get(serviceId);
+  return !!(m && (m.screen || m.mic || m.cam));
+}
+
+function isKeepAlive(service) {
+  if (!service) return false;
+  if (typeof service.keepAlive === 'boolean') return service.keepAlive;
+  try {
+    const host = new URL(service.url).hostname.toLowerCase();
+    return KEEP_ALIVE_HOSTS.some(h => host === h || host.endsWith('.' + h));
+  } catch {
+    return false;
+  }
+}
+
+function canHibernate(serviceId) {
+  if (serviceId === activeServiceId || hasActiveMedia(serviceId)) return false;
+  return !isKeepAlive(services.find(s => s.id === serviceId));
+}
+
+function hibernateService(serviceId) {
+  const cached = webviewCache.get(serviceId);
+  if (!cached) return;
+  try {
+    const u = cached.webview?.getURL?.();
+    if (u && u.startsWith('http')) hibernatedUrls.set(serviceId, u);
+  } catch {}
+  removeFromWebviewCache(serviceId);
+  const idx = webviewAccessOrder.indexOf(serviceId);
+  if (idx !== -1) webviewAccessOrder.splice(idx, 1);
+  hibernatedIds.add(serviceId);
+  updateServiceBadge(serviceId, 0);
+  updateServiceRowState(serviceId);
 }
 
 function updateWebviewLRU(serviceId) {
@@ -409,11 +502,62 @@ function updateWebviewLRU(serviceId) {
   if (idx !== -1) webviewAccessOrder.splice(idx, 1);
   webviewAccessOrder.push(serviceId);
   while (webviewAccessOrder.length > WEBVIEW_CACHE_MAX) {
-    const evictId = webviewAccessOrder[0];
-    if (evictId === activeServiceId) break;
-    webviewAccessOrder.shift();
-    removeFromWebviewCache(evictId);
+    const evictId = webviewAccessOrder.find(canHibernate);
+    if (!evictId) break;
+    hibernateService(evictId);
   }
+}
+
+function hibernateIdleServices() {
+  if (!hibernateMinutes) return;
+  const limit = hibernateMinutes * 60 * 1000;
+  const now = Date.now();
+  [...webviewCache.entries()].forEach(([id, c]) => {
+    if (c.hiddenAt && now - c.hiddenAt > limit && canHibernate(id)) hibernateService(id);
+  });
+}
+
+function setHibernateMinutes(min) {
+  hibernateMinutes = Math.max(0, parseInt(min, 10) || 0);
+  try { localStorage.setItem(HIBERNATE_KEY, String(hibernateMinutes)); } catch {}
+}
+
+function toggleKeepAlive(serviceId) {
+  const service = services.find(s => s.id === serviceId);
+  if (!service) return;
+  service.keepAlive = !isKeepAlive(service);
+  saveServices();
+  showToast(service.keepAlive ? `${service.name} fica sempre ativo` : `${service.name} pode hibernar quando inativo`);
+  renderSidebar();
+}
+
+// Atualiza só o estado visual da linha (hibernado / média ativa), sem recriar a sidebar
+function updateServiceRowState(serviceId) {
+  const row = serviceListEl?.querySelector(`.service-row[data-id="${CSS.escape(serviceId)}"]`);
+  if (!row) return;
+  const service = services.find(s => s.id === serviceId);
+  const hibernated = hibernatedIds.has(serviceId) && serviceId !== activeServiceId;
+  row.classList.toggle('is-hibernated', hibernated);
+  row.title = service ? (hibernated ? `${service.name} — hibernado (clique para acordar)` : service.name) : row.title;
+  const iconWrap = row.querySelector('.service-icon-wrap');
+  if (!iconWrap) return;
+  let dot = iconWrap.querySelector('.media-dot');
+  const m = mediaStates.get(serviceId);
+  if (hasActiveMedia(serviceId)) {
+    if (!dot) {
+      dot = document.createElement('span');
+      dot.className = 'media-dot';
+      iconWrap.appendChild(dot);
+    }
+    dot.title = m.screen ? 'A partilhar tela' : (m.cam ? 'Câmara ligada' : 'Microfone ligado');
+    dot.classList.toggle('is-screen', !!m.screen);
+  } else if (dot) {
+    dot.remove();
+  }
+}
+
+function isSameHost(a, b) {
+  try { return new URL(a).hostname === new URL(b).hostname; } catch { return false; }
 }
 
 function escapeHtml(str) {
@@ -684,6 +828,7 @@ function confirmRemoveService() {
   if (idx === -1) { closeDeleteModal(); return; }
   services.splice(idx, 1);
   removeFromWebviewCache(id);
+  window.electronAPI?.storage?.clearPartition(id).catch(() => {});
   saveServices();
   if (activeServiceId === id) {
     setActiveService(services[0]?.id ?? null);
@@ -888,6 +1033,7 @@ function renderSidebar() {
       (isDisabled ? ' opacity-50' : '');
     row.dataset.id = service.id;
     row.dataset.index = String(services.indexOf(service));
+    row.dataset.name = service.name || '';
     row.title = service.name;
 
     const dragHandle = document.createElement('div');
@@ -933,15 +1079,15 @@ function renderSidebar() {
 
     const img = document.createElement('img');
     const fallbackIcon = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Ccircle cx='12' cy='12' r='10' fill='%2374757e'/%3E%3C/svg%3E";
-    img.src = iconUrl || fallbackIcon;
+    const memoIcon = iconUrl ? iconDataCache.get(iconUrl) : null;
+    img.src = memoIcon || iconUrl || fallbackIcon;
     img.alt = '';
     img.className = 'w-6 h-6 rounded bg-zinc-600/50 service-icon-img block';
     img.onerror = () => { img.src = fallbackIcon; };
-    // Progressive: upgrade to cached data URL when available
-    if (iconUrl && window.electronAPI?.getCachedIcon) {
-      window.electronAPI.getCachedIcon(iconUrl).then(dataUrl => {
+    if (!memoIcon && iconUrl) {
+      loadCachedIcon(iconUrl).then(dataUrl => {
         if (dataUrl && img.isConnected) img.src = dataUrl;
-      }).catch(() => {});
+      });
     }
 
     // Icon wrapper — badge / disabled overlay on top-right corner
@@ -1035,6 +1181,16 @@ function renderSidebar() {
     duplicateItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/></svg> Duplicar';
     duplicateItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); duplicateService(service); });
     dropdown.appendChild(duplicateItem);
+    if (!isDisabled) {
+      const keepAlive = isKeepAlive(service);
+      const keepAliveItem = document.createElement('button');
+      keepAliveItem.type = 'button';
+      keepAliveItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 hover:bg-zinc-600 ' + (keepAlive ? 'text-violet-400' : 'text-zinc-300 hover:text-zinc-100');
+      keepAliveItem.title = 'Serviços sempre ativos nunca hibernam (recebem notificações mesmo em segundo plano)';
+      keepAliveItem.innerHTML = '<svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg> ' + (keepAlive ? 'Sempre ativo ✓' : 'Manter sempre ativo');
+      keepAliveItem.addEventListener('click', (e) => { e.stopPropagation(); closeAllDropdowns(); toggleKeepAlive(service.id); });
+      dropdown.appendChild(keepAliveItem);
+    }
     const disableItem = document.createElement('button');
     disableItem.type = 'button';
     disableItem.className = 'w-full px-3 py-2 text-left text-sm flex items-center gap-2 ' + (isDisabled ? 'text-violet-400' : 'text-zinc-300 hover:bg-zinc-600 hover:text-zinc-100');
@@ -1057,6 +1213,7 @@ function renderSidebar() {
     wrapper.appendChild(dropdown);
     row.appendChild(wrapper);
     serviceListEl.appendChild(row);
+    updateServiceRowState(service.id);
   }
   applySidebarCollapsed();
 }
@@ -1066,7 +1223,7 @@ function filterSidebar(term) {
   if (!serviceListEl) return;
   const t = term.trim().toLowerCase();
   serviceListEl.querySelectorAll('.service-row[data-id]').forEach(row => {
-    const name = (row.title || '').toLowerCase();
+    const name = (row.dataset.name || '').toLowerCase();
     row.classList.toggle('hidden', t.length > 0 && !name.includes(t));
   });
 }
@@ -1092,6 +1249,9 @@ function renderContentArea() {
   [...webviewCache.keys()].forEach(id => {
     if (!validIds.has(id)) removeFromWebviewCache(id);
   });
+  [...hibernatedIds].forEach(id => {
+    if (!validIds.has(id)) { hibernatedIds.delete(id); hibernatedUrls.delete(id); }
+  });
 
   const hasActiveService = services.length > 0;
   const activeCandidate = services.find(s => s.id === activeServiceId);
@@ -1108,17 +1268,14 @@ function renderContentArea() {
   }
 
   function injectLightTheme(wv) {
-    function doInject() {
-      // Only force light theme in webviews when the app itself is in light mode.
-      // In dark mode, let webviews follow their natural/OS preference.
-      if (document.body.dataset.theme !== 'light') return;
-      wv.executeJavaScript(LIGHT_THEME_SCRIPT).catch(() => {});
-      try { wv.insertCSS(LIGHT_THEME_CSS); } catch (_) {}
-    }
-    wv.addEventListener('did-finish-load', function onLoad() {
-      doInject();
-      setTimeout(doInject, 500);
-      setTimeout(doInject, 1500);
+    // Only force light theme in webviews when the app itself is in light mode.
+    // In dark mode, let webviews follow their natural/OS preference.
+    const isLight = () => document.body.dataset.theme === 'light';
+    wv.addEventListener('dom-ready', () => {
+      if (isLight()) wv.insertCSS(LIGHT_THEME_CSS).catch(() => {});
+    });
+    wv.addEventListener('did-finish-load', () => {
+      if (isLight()) wv.executeJavaScript(LIGHT_THEME_SCRIPT).catch(() => {});
     });
   }
 
@@ -1156,7 +1313,11 @@ function renderContentArea() {
     const abortController = new AbortController();
     const signal = abortController.signal;
 
+    const resumeUrl = hibernatedUrls.get(serviceId);
+    hibernatedUrls.delete(serviceId);
+    hibernatedIds.delete(serviceId);
     const currentUrl = service.url ?? getDefaultUrl();
+    const startUrl = resumeUrl && isSameHost(resumeUrl, currentUrl) ? resumeUrl : currentUrl;
     const loadingBar = createLoadingBar();
     const webview = document.createElement('webview');
     const partitionId = (serviceId && serviceId !== 'default') ? String(serviceId).replace(/[^a-zA-Z0-9_-]/g, '') : 'default';
@@ -1171,7 +1332,7 @@ function renderContentArea() {
     }
     injectMuteIfNeeded(webview, serviceId);
     injectLightTheme(webview);
-    webview.src = currentUrl;
+    webview.src = startUrl;
 
     webview.addEventListener('page-title-updated', (e) => {
       const title = e.title || '';
@@ -1182,6 +1343,10 @@ function renderContentArea() {
 
     // 3.3 — recebe notificações interceptadas pelo webview-preload e encaminha como notificação nativa
     webview.addEventListener('ipc-message', (e) => {
+      if (e.channel === 'media-state') {
+        setMediaState(serviceId, (e.args && e.args[0]) || {});
+        return;
+      }
       if (e.channel !== 'web-notification') return;
       if (isServiceMuted(serviceId) || muteAll) return;
       const d = (e.args && e.args[0]) || {};
@@ -1324,6 +1489,11 @@ function renderContentArea() {
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
       </button>
       <div id="toolbar-service-name" class="flex-1 min-w-0 flex items-center justify-center gap-1.5 px-2 pointer-events-none select-none"></div>
+      <div id="toolbar-media-pill" class="hidden-pill flex items-center gap-1.5 mr-1 pl-2 pr-1 py-0.5 rounded-full text-[11px] font-medium text-zinc-300 bg-zinc-700/50 border border-zinc-600/40" role="status" aria-live="polite">
+        <span class="media-dot" style="position:static;box-shadow:none"></span>
+        <span id="toolbar-media-label"></span>
+        <button type="button" id="toolbar-media-stop" class="hidden ml-0.5 px-2 py-0.5 rounded-full text-[11px] font-semibold text-white bg-red-500/90 hover:bg-red-500 transition-colors" title="Parar partilha de tela">Parar</button>
+      </div>
       <span id="toolbar-zoom" class="hidden text-[10px] font-medium text-zinc-500 tabular-nums px-1.5 py-0.5 rounded bg-zinc-700/40 pointer-events-none select-none" aria-hidden="true"></span>
       <button type="button" id="toolbar-refresh" class="p-1.5 rounded text-zinc-400 hover:text-zinc-200 hover:bg-zinc-600/50 transition-colors" title="Recarregar">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
@@ -1344,6 +1514,7 @@ function renderContentArea() {
     toolbar.querySelector('#toolbar-back')?.addEventListener('click', () => { try { activeWebview?.goBack(); } catch {} });
     toolbar.querySelector('#toolbar-forward')?.addEventListener('click', () => { try { activeWebview?.goForward(); } catch {} });
     toolbar.querySelector('#toolbar-refresh')?.addEventListener('click', () => { activeWebview?.reload(); });
+    toolbar.querySelector('#toolbar-media-stop')?.addEventListener('click', stopActiveScreenShare);
     toolbar.querySelector('#toolbar-open-external')?.addEventListener('click', () => {
       const u = activeWebview?.getURL?.();
       if (u && typeof window.electronAPI?.openExternal === 'function') window.electronAPI.openExternal(u);
@@ -1360,8 +1531,11 @@ function renderContentArea() {
   webviewCache.forEach((c, id) => {
     const isActive = id === activeServiceId;
     c.container.classList.toggle('hidden', !isActive);
+    if (isActive) c.hiddenAt = 0;
+    else if (!c.hiddenAt) c.hiddenAt = Date.now();
     try { c.webview.setBackgroundThrottling?.(!isActive); } catch {}
   });
+  updateServiceRowState(active.id);
 
   activeWebview = pane.webview;
 
@@ -1390,6 +1564,7 @@ function renderContentArea() {
     toolbarNameEl.appendChild(nameSpan);
   }
   updateToolbarZoom();
+  updateMediaPill();
 
   function updateNavButtons() {
     const backBtn = document.getElementById('toolbar-back');
@@ -1480,6 +1655,63 @@ function closeAllDropdowns() {
 
 function openMenuModal() {
   document.getElementById('modal-menu')?.classList.add('modal-open');
+  refreshStorageUsage();
+}
+
+function formatBytes(bytes) {
+  const n = Number(bytes) || 0;
+  if (n < 1024 * 1024) return Math.max(0, Math.round(n / 1024)) + ' KB';
+  if (n < 1024 * 1024 * 1024) return Math.round(n / (1024 * 1024)) + ' MB';
+  return (n / (1024 * 1024 * 1024)).toFixed(1) + ' GB';
+}
+
+let storageUsageSeq = 0;
+
+async function refreshStorageUsage() {
+  const api = window.electronAPI?.storage;
+  const listEl = document.getElementById('storage-list');
+  const totalEl = document.getElementById('storage-total');
+  if (!api || !listEl) return;
+  const seq = ++storageUsageSeq;
+  if (totalEl) totalEl.textContent = 'A calcular…';
+  let usage;
+  try { usage = await api.getUsage(services.map(s => s.id)); } catch { usage = null; }
+  if (seq !== storageUsageSeq) return;
+  if (!usage) { if (totalEl) totalEl.textContent = '—'; return; }
+  if (totalEl) totalEl.textContent = formatBytes(usage.total);
+  listEl.innerHTML = '';
+  [...services]
+    .sort((a, b) => (usage.services[b.id] || 0) - (usage.services[a.id] || 0))
+    .forEach(service => {
+      const row = document.createElement('div');
+      row.className = 'storage-row flex items-center gap-2 px-2 py-1 rounded-lg text-xs text-zinc-400 hover:bg-zinc-700/30 transition-colors';
+      const name = document.createElement('span');
+      name.className = 'flex-1 truncate';
+      name.textContent = service.name;
+      const size = document.createElement('span');
+      size.className = 'tabular-nums text-zinc-500';
+      size.textContent = formatBytes(usage.services[service.id]);
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'storage-clear-btn opacity-0 focus:opacity-100 p-1 rounded text-zinc-500 hover:text-zinc-200 hover:bg-zinc-600/50 transition-all';
+      btn.title = `Limpar cache de ${service.name}`;
+      btn.setAttribute('aria-label', btn.title);
+      btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>';
+      btn.addEventListener('click', () => clearServiceCache(service.id, usage.services[service.id] || 0));
+      row.append(name, size, btn);
+      listEl.appendChild(row);
+    });
+}
+
+async function clearServiceCache(serviceId, before) {
+  try {
+    await window.electronAPI.storage.clearCache(serviceId || null);
+    await refreshStorageUsage();
+    const label = serviceId ? (services.find(s => s.id === serviceId)?.name || 'serviço') : 'todos os serviços';
+    showToast(`Cache de ${label} limpa` + (before ? ` (antes: ${formatBytes(before)})` : ''), { type: 'success' });
+  } catch {
+    showToast('Não deu para limpar a cache', { type: 'error' });
+  }
 }
 
 function closeMenuModal() {
@@ -1691,6 +1923,7 @@ function init() {
   inputUrlEl = document.getElementById('input-url');
 
   loadServices();
+  window.electronAPI?.storage?.pruneOrphans(services.map(s => s.id)).catch(() => {});
   loadZoomLevels();
   // Restore last active service
   try {
@@ -1966,6 +2199,21 @@ function init() {
   document.getElementById('modal-menu-overlay')?.addEventListener('click', closeMenuModal);
   document.getElementById('modal-menu-close')?.addEventListener('click', closeMenuModal);
 
+  const hibernateSelect = document.getElementById('hibernate-select');
+  if (hibernateSelect) {
+    hibernateSelect.value = String(hibernateMinutes);
+    if (hibernateSelect.value !== String(hibernateMinutes)) hibernateSelect.value = '15';
+    hibernateSelect.addEventListener('change', () => setHibernateMinutes(hibernateSelect.value));
+  }
+
+  const storageClearAll = document.getElementById('storage-clear-all');
+  if (storageClearAll) {
+    storageClearAll.addEventListener('click', async () => {
+      storageClearAll.disabled = true;
+      try { await clearServiceCache(null, 0); } finally { storageClearAll.disabled = false; }
+    });
+  }
+
   const toastLevelSelect = document.getElementById('toast-level-select');
   if (toastLevelSelect) {
     try { toastLevelSelect.value = localStorage.getItem(TOAST_LEVEL_KEY) || 'normal'; } catch {}
@@ -2018,6 +2266,11 @@ function init() {
   if (modalStarLater) modalStarLater.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
   if (modalStarOverlay) modalStarOverlay.addEventListener('click', () => modalStar?.classList.remove('modal-open'));
 
+  window.electronAPI?.onScreenShareStatus?.((d) => {
+    if (d?.state === 'permission-denied') showToast('Sem permissão de gravação de ecrã', { type: 'error' });
+    else if (d?.state === 'error') showToast('Não foi possível partilhar a tela', { type: 'error' });
+  });
+
   // 3.3 — ao clicar numa notificação nativa, ativar o serviço correspondente
   window.electronAPI?.onFocusService?.((d) => {
     if (d && d.serviceId) {
@@ -2043,16 +2296,9 @@ function init() {
   setupExportImport();
 
   // Pre-populate icon cache in background (non-blocking)
-  if (window.electronAPI?.getCachedIcon) {
-    setTimeout(() => {
-      services.forEach(s => {
-        const url = getServiceIconUrl(s);
-        if (url && url.startsWith('https://')) {
-          window.electronAPI.getCachedIcon(url).catch(() => {});
-        }
-      });
-    }, 3000);
-  }
+  setTimeout(() => services.forEach(s => loadCachedIcon(getServiceIconUrl(s))), 3000);
+
+  setInterval(hibernateIdleServices, 60 * 1000);
 }
 
 document.addEventListener('DOMContentLoaded', init);

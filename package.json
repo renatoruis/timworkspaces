@@ -1,7 +1,7 @@
 {
   "name": "timworkspaces",
   "productName": "Tim Workspaces",
-  "version": "1.5.4",
+  "version": "1.6.0",
   "description": "Desktop app that aggregates web tools (WhatsApp, Gmail, Teams, Slack, etc.) in one window",
   "author": {
     "name": "Renato Ruis",
@@ -68,7 +68,8 @@
       "entitlementsInherit": "entitlements.mac.plist",
       "extendInfo": {
         "NSScreenCaptureUsageDescription": "O Tim Workspaces precisa da captura de tela para compartilhar em videochamadas (Meet, Teams, Zoom, WhatsApp, etc.).",
-        "NSAudioCaptureUsageDescription": "O Tim Workspaces precisa de capturar áudio do sistema para partilha em chamadas."
+        "NSAudioCaptureUsageDescription": "O Tim Workspaces precisa de capturar áudio do sistema para partilha em chamadas.",
+        "NSBluetoothAlwaysUsageDescription": "O Tim Workspaces usa Bluetooth para ligar headsets e dispositivos pedidos pelos serviços web."
       }
     },
     "linux": {

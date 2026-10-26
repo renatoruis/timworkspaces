@@ -99,6 +99,13 @@ Mensagem *A required agreement is missing or has expired* → entra em [develope
 
 ## Changelog recente
 
+### v1.6.0
+
+- **Disco:** cache HTTP limitada a 150 MB por serviço, limpeza semanal automática de caches (sem perder logins/conversas), remoção de dados de serviços apagados e secção **Armazenamento** no menu (uso por serviço + limpar cache).
+- **Performance:** hibernação de serviços inativos (configurável; mensageiros e chamadas ativas ficam sempre ligados, opção "Manter sempre ativo"), ícones em memória e menos re-renders.
+- **Tela e devices:** seletor de tela mais rápido (skeleton, atualizar, teclado), indicador de partilha/mic/câmara com botão **Parar**, áudio do sistema no macOS 13+, suporte a headsets e dispositivos HID/USB/série/Bluetooth.
+- **Fix:** preloads falhavam no sandbox do Electron — notificações nativas, badge e cache de ícones voltam a funcionar.
+
 ### v1.5.4
 
 - **Fix Teams / Microsoft (reforço):** bloqueio WebAuthn em todos os frames (iframes de login), popups OAuth com preload, e fallback `NotSupportedError` para forçar palavra-passe ou Authenticator.
