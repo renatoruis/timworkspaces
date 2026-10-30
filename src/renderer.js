@@ -300,11 +300,17 @@ function loadMuteState() {
     mutedServices = new Set();
     muteAll = false;
   }
+  syncNotificationMute();
+}
+
+function syncNotificationMute() {
+  window.electronAPI?.setNotificationMute?.({ all: muteAll, ids: [...mutedServices] })?.catch?.(() => {});
 }
 
 function saveMuteState() {
   localStorage.setItem(MUTED_SERVICES_KEY, JSON.stringify([...mutedServices]));
   localStorage.setItem(MUTE_ALL_KEY, String(muteAll));
+  syncNotificationMute();
 }
 
 function isServiceMuted(id) {
@@ -344,7 +350,7 @@ function toggleDisableService(id) {
 
 function toggleMuteAll() {
   muteAll = !muteAll;
-  localStorage.setItem(MUTE_ALL_KEY, String(muteAll));
+  saveMuteState();
   updateMuteAllButton();
 }
 
@@ -1242,6 +1248,70 @@ function updateToolbarZoom(factor) {
   }
 }
 
+// Evita ciclos de crash → reload → crash em serviços em segundo plano
+const CRASH_AUTO_RELOAD_COOLDOWN_MS = 60 * 1000;
+const ERR_ABORTED = -3;
+
+function attachServiceRecovery(service, webview, wrap, signal) {
+  const overlay = document.createElement('div');
+  overlay.className = 'service-recovery absolute inset-0 z-30 hidden flex-col items-center justify-center gap-3 p-8 text-center';
+  overlay.style.cssText = 'background:color-mix(in srgb, var(--bg) 94%, transparent);backdrop-filter:blur(4px)';
+  overlay.setAttribute('role', 'alert');
+  overlay.innerHTML = `
+    <p class="recovery-title text-base font-semibold" style="color:var(--text)"></p>
+    <p class="recovery-detail text-sm max-w-xs" style="color:var(--text-muted)"></p>
+    <button type="button" class="recovery-btn mt-1 px-5 py-2.5 bg-violet-500 hover:bg-violet-600 text-white rounded-xl text-sm font-medium transition-colors shadow-lg shadow-violet-500/20"></button>`;
+  wrap.appendChild(overlay);
+
+  let state = null;
+  let failedThisLoad = false;
+  let lastAutoReload = 0;
+
+  const show = (next, title, detail, action) => {
+    state = next;
+    overlay.querySelector('.recovery-title').textContent = title;
+    overlay.querySelector('.recovery-detail').textContent = detail;
+    overlay.querySelector('.recovery-btn').textContent = action;
+    overlay.classList.remove('hidden');
+    overlay.classList.add('flex');
+  };
+  const hide = () => {
+    state = null;
+    overlay.classList.add('hidden');
+    overlay.classList.remove('flex');
+  };
+  const reload = () => {
+    hide();
+    try { webview.reload(); } catch {}
+  };
+  overlay.querySelector('.recovery-btn').addEventListener('click', reload, { signal });
+
+  webview.addEventListener('render-process-gone', (e) => {
+    if (e.details?.reason === 'clean-exit') return;
+    show('crashed', `${service.name} parou de responder`, 'O serviço terminou inesperadamente.', 'Recarregar');
+    if (service.id !== activeServiceId && Date.now() - lastAutoReload > CRASH_AUTO_RELOAD_COOLDOWN_MS) {
+      lastAutoReload = Date.now();
+      reload();
+    }
+  }, { signal });
+
+  webview.addEventListener('unresponsive', () => {
+    if (!state) show('unresponsive', `${service.name} não está a responder`, 'A aguardar resposta…', 'Recarregar');
+  }, { signal });
+  webview.addEventListener('responsive', () => { if (state === 'unresponsive') hide(); }, { signal });
+
+  webview.addEventListener('did-start-loading', () => { failedThisLoad = false; }, { signal });
+  webview.addEventListener('did-fail-load', (e) => {
+    if (!e.isMainFrame || e.errorCode === ERR_ABORTED) return;
+    failedThisLoad = true;
+    const reason = e.errorDescription ? ` (${e.errorDescription})` : '';
+    show('offline', 'Sem ligação', `Não foi possível carregar ${service.name}${reason}.`, 'Tentar de novo');
+  }, { signal });
+  webview.addEventListener('did-finish-load', () => { if (!failedThisLoad) hide(); }, { signal });
+
+  window.addEventListener('online', () => { if (state === 'offline') reload(); }, { signal });
+}
+
 function renderContentArea() {
   if (!contentAreaEl) return;
 
@@ -1410,6 +1480,7 @@ function renderContentArea() {
     webviewWrap.className = 'flex-1 min-h-0 relative';
     webviewWrap.appendChild(webview);
     container.appendChild(webviewWrap);
+    attachServiceRecovery(service, webview, webviewWrap, signal);
 
     cached = { container, webview, loadingBar, abortController, cancelLoadingTimer };
     webviewCache.set(serviceId, cached);

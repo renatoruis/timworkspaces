@@ -4,52 +4,71 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Instalação — Tim Workspaces</title>
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/icone-fundo-escuro.png">
+  <meta name="theme-color" content="#111113">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
-  <style>body{font-family:'Figtree',system-ui,sans-serif}</style>
+  <style>
+    body { font-family: 'Figtree', system-ui, sans-serif; background-color: #111113; }
+    .bg-glow { background: radial-gradient(50rem 24rem at 50% -10%, rgba(14,165,233,0.16), transparent 70%); }
+    .card { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.08); }
+  </style>
 </head>
-<body class="text-zinc-100 min-h-screen antialiased" style="background-color:#212124">
-  <div class="max-w-2xl mx-auto px-6 py-16">
-    <header class="mb-12">
-      <a href="index.html" class="inline-flex items-center gap-2 text-zinc-500 hover:text-zinc-300 text-sm transition-colors mb-6">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
-        Voltar
-      </a>
-      <div class="flex justify-center mb-4">
-        <img src="assets/logo-fundo-escuro.png" alt="Tim Workspaces" class="h-16 w-auto object-contain">
+<body class="text-zinc-100 min-h-screen antialiased">
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-96 bg-glow" aria-hidden="true"></div>
+
+  <div class="relative max-w-2xl mx-auto px-6 py-14">
+    <a href="index.html" class="inline-flex items-center gap-1.5 px-3 py-1.5 -ml-3 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 text-sm transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+      Voltar
+    </a>
+
+    <header class="text-center mt-8 mb-12">
+      <div class="flex justify-center mb-6">
+        <img src="assets/icone-fundo-escuro.png" alt="Tim Workspaces" class="w-14 h-14 rounded-2xl shadow-lg shadow-sky-500/10">
       </div>
-      <h1 class="text-2xl font-medium text-zinc-200 text-center">Instruções de instalação</h1>
-      <p class="text-zinc-500 text-center text-sm mt-2">Problemas comuns e como resolver</p>
+      <h1 class="text-3xl font-bold tracking-tight">Instruções de instalação</h1>
+      <p class="text-zinc-400 text-sm mt-2">Problemas comuns e como resolver</p>
     </header>
 
-    <div class="space-y-10">
-      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-        <h2 class="text-lg font-medium text-zinc-200 mb-3">Windows — SmartScreen</h2>
-        <p class="text-zinc-500 text-sm mb-3">
+    <div class="space-y-4">
+      <section class="card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-300 flex items-center justify-center">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+          </span>
+          <h2 class="text-lg font-semibold">Windows — SmartScreen</h2>
+        </div>
+        <p class="text-zinc-400 text-sm mb-3 leading-relaxed">
           O Microsoft Defender SmartScreen pode bloquear: <em>&quot;O Windows protegeu seu PC&quot;</em> ou <em>&quot;Um app não reconhecido foi impedido de iniciar&quot;</em>.
         </p>
-        <p class="text-zinc-400 text-sm mb-3">
-          O app é open source e não possui certificado de assinatura. Código público no <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300">GitHub</a>.
+        <p class="text-zinc-400 text-sm mb-4 leading-relaxed">
+          O app é open source e não possui certificado de assinatura. Código público no <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 transition-colors">GitHub</a>.
         </p>
-        <p class="text-zinc-300 text-sm font-medium">Como executar:</p>
-        <ol class="list-decimal list-inside text-zinc-500 text-sm mt-1 space-y-1">
-          <li>Clique em <strong>Mais informações</strong></li>
-          <li>Clique em <strong>Executar assim mesmo</strong></li>
+        <p class="text-zinc-200 text-sm font-medium mb-2">Como executar:</p>
+        <ol class="space-y-2 text-sm text-zinc-400">
+          <li class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-300 flex items-center justify-center">1</span>Clique em <strong class="text-zinc-200">Mais informações</strong></li>
+          <li class="flex items-center gap-3"><span class="w-6 h-6 rounded-full bg-white/5 border border-white/10 text-xs text-zinc-300 flex items-center justify-center">2</span>Clique em <strong class="text-zinc-200">Executar assim mesmo</strong></li>
         </ol>
       </section>
 
-      <section class="rounded-xl p-6 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-        <h2 class="text-lg font-medium text-zinc-200 mb-3">Linux — .deb</h2>
-        <p class="text-zinc-500 text-sm">
-          Instale com <code class="text-zinc-300 bg-zinc-700/50 px-2 py-0.5 rounded">dpkg -i timworkspaces_*.deb</code> ou use o instalador gráfico do seu ambiente. Se faltar dependências, o sistema deve indicar (ex.: libfuse2 no Ubuntu).
+      <section class="card rounded-2xl p-6">
+        <div class="flex items-center gap-3 mb-4">
+          <span class="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
+            <img src="https://cdn.simpleicons.org/linux/fcd34d" alt="" class="w-5 h-5" width="20" height="20">
+          </span>
+          <h2 class="text-lg font-semibold">Linux — .deb</h2>
+        </div>
+        <p class="text-zinc-400 text-sm leading-relaxed">
+          Instale com <code class="text-zinc-200 bg-white/5 border border-white/10 px-2 py-0.5 rounded-md text-xs">dpkg -i timworkspaces_*.deb</code> ou use o instalador gráfico do seu ambiente. Se faltar dependências, o sistema deve indicar (ex.: libfuse2 no Ubuntu).
         </p>
       </section>
     </div>
 
-    <footer class="text-center mt-16">
-      <a href="index.html" class="text-sky-400 hover:text-sky-300 text-sm">← Voltar para a página inicial</a>
+    <footer class="text-center mt-14 text-sm text-zinc-500">
+      Ainda com problema? <a href="https://github.com/renatoruis/timworkspaces/issues" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 transition-colors">Abre uma issue no GitHub</a>
     </footer>
   </div>
 </body>

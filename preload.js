@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Preload em sandbox não tem acesso a 'path'/'url': o main resolve o caminho
   webviewPreloadPath: ipcRenderer.sendSync('get-webview-preload-path'),
   showNativeNotification: (p) => ipcRenderer.invoke('show-native-notification', p),
+  setNotificationMute: (state) => ipcRenderer.invoke('set-notification-mute', state),
   onFocusService: (cb) => ipcRenderer.on('focus-service', (_e, d) => cb(d)),
   storage: {
     pruneOrphans: (ids) => ipcRenderer.invoke('storage:prune-orphans', ids),

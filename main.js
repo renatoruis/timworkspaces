@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer, systemPreferences, Notification, globalShortcut, session } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, nativeTheme, Menu, Tray, nativeImage, dialog, desktopCapturer, systemPreferences, Notification, globalShortcut, session, clipboard } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
@@ -8,6 +8,18 @@ const storage = require('./src/storage-manager');
 
 app.setName('Tim Workspaces');
 if (process.platform === 'linux') process.title = 'Tim Workspaces';
+
+// Duas instâncias no mesmo userData corrompem LevelDB/IndexedDB das sessões
+if (!app.requestSingleInstanceLock()) app.exit(0);
+app.on('second-instance', () => {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    if (app.isReady()) createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+});
 
 // Limite do HTTP cache por sessão/partição (sem isto cresce sem teto)
 app.commandLine.appendSwitch('disk-cache-size', String(150 * 1024 * 1024));
@@ -89,6 +101,23 @@ function attachWebAuthnAccountSelector(sess) {
   });
 }
 
+// Notificações de service workers e iframes não passam pelo shim do webview-preload:
+// o mute tem de ser aplicado também na verificação de permissão do Chromium
+const notificationMute = { all: false, ids: new Set() };
+const toPartitionId = (id) => String(id || '').replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+
+function isSessionNotificationMuted(sess) {
+  if (notificationMute.all) return true;
+  let name = '';
+  try { name = path.basename(sess?.getStoragePath?.() || '').toLowerCase(); } catch {}
+  return name.startsWith('timworkspaces-') && notificationMute.ids.has(name.slice('timworkspaces-'.length));
+}
+
+ipcMain.handle('set-notification-mute', (_e, state) => {
+  notificationMute.all = !!state?.all;
+  notificationMute.ids = new Set(Array.isArray(state?.ids) ? state.ids.map(toPartitionId) : []);
+});
+
 function ensureWebviewSessionHandlers(sess) {
   if (!sess || configuredWebviewSessions.has(sess)) return;
   configuredWebviewSessions.add(sess);
@@ -97,12 +126,87 @@ function ensureWebviewSessionHandlers(sess) {
     callback(WEBVIEW_PERMISSION_ALLOW.has(permission));
   });
 
-  sess.setPermissionCheckHandler((_wc, permission) => WEBVIEW_PERMISSION_ALLOW.has(permission));
+  sess.setPermissionCheckHandler((_wc, permission) => {
+    if (permission === 'notifications' && isSessionNotificationMuted(sess)) return false;
+    return WEBVIEW_PERMISSION_ALLOW.has(permission);
+  });
   sess.setDevicePermissionHandler((details) => DEVICE_TYPES_ALLOW.has(details.deviceType));
 
   attachWebviewDisplayMediaHandler(sess);
   attachWebAuthnAccountSelector(sess);
   attachDeviceSelectors(sess);
+
+  // macOS usa o corretor do sistema; Windows/Linux precisam das línguas explícitas
+  if (process.platform !== 'darwin') {
+    try {
+      const langs = SPELLCHECK_LANGUAGES.filter((l) => sess.availableSpellCheckerLanguages.includes(l));
+      if (langs.length) sess.setSpellCheckerLanguages(langs);
+    } catch {}
+  }
+}
+
+const SPELLCHECK_LANGUAGES = ['pt-BR', 'pt-PT', 'en-US'];
+const contextMenuAttached = new WeakSet();
+
+function isHttpUrl(u) {
+  return typeof u === 'string' && /^https?:\/\//i.test(u);
+}
+
+function buildContextMenuTemplate(wc, params) {
+  const groups = [];
+
+  if (params.misspelledWord) {
+    const suggestions = (params.dictionarySuggestions || []).slice(0, 5)
+      .map((s) => ({ label: s, click: () => wc.replaceMisspelling(s) }));
+    groups.push([
+      ...(suggestions.length ? suggestions : [{ label: 'Sem sugestões', enabled: false }]),
+      { label: 'Adicionar ao dicionário', click: () => wc.session.addWordToSpellCheckerDictionary(params.misspelledWord) }
+    ]);
+  }
+
+  if (isHttpUrl(params.linkURL)) {
+    groups.push([
+      { label: 'Abrir link no navegador', click: () => shell.openExternal(params.linkURL).catch(() => {}) },
+      { label: 'Copiar link', click: () => clipboard.writeText(params.linkURL) }
+    ]);
+  }
+
+  if (params.mediaType === 'image' && params.srcURL) {
+    groups.push([
+      { label: 'Copiar imagem', click: () => wc.copyImageAt(params.x, params.y) },
+      { label: 'Guardar imagem…', click: () => wc.downloadURL(params.srcURL) }
+    ]);
+  }
+
+  const f = params.editFlags || {};
+  if (params.isEditable) {
+    groups.push([
+      { label: 'Cortar', enabled: !!f.canCut, click: () => wc.cut() },
+      { label: 'Copiar', enabled: !!f.canCopy, click: () => wc.copy() },
+      { label: 'Colar', enabled: !!f.canPaste, click: () => wc.paste() },
+      { label: 'Selecionar tudo', enabled: f.canSelectAll !== false, click: () => wc.selectAll() }
+    ]);
+  } else if ((params.selectionText || '').trim()) {
+    groups.push([{ label: 'Copiar', click: () => wc.copy() }]);
+  }
+
+  if (!app.isPackaged) {
+    groups.push([{ label: 'Inspecionar', click: () => wc.inspectElement(params.x, params.y) }]);
+  }
+
+  return groups.flatMap((g, i) => (i ? [{ type: 'separator' }, ...g] : g));
+}
+
+function attachContextMenu(wc) {
+  if (!wc || contextMenuAttached.has(wc)) return;
+  contextMenuAttached.add(wc);
+  wc.on('context-menu', (_e, params) => {
+    const template = buildContextMenuTemplate(wc, params);
+    if (!template.length) return;
+    const host = wc.hostWebContents || wc;
+    const win = BrowserWindow.fromWebContents(host) || mainWindow;
+    Menu.buildFromTemplate(template).popup(win && !win.isDestroyed() ? { window: win } : {});
+  });
 }
 
 function deviceLabel(d, i) {
@@ -174,6 +278,25 @@ function attachBluetoothSelector(webContents) {
   });
 }
 
+// macOS: janela-filha de uma janela em fullscreen abre noutro Space e, ao fechar,
+// deixa o ecrã preto / tira a app de fullscreen. Em fullscreen a popup fica solta e flutua por cima.
+function authPopupParentOptions() {
+  const parent = mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined;
+  if (parent && parent.isFullScreen()) return { fullscreenable: false, alwaysOnTop: true };
+  return { parent };
+}
+
+function setupPopupOverFullscreen(win) {
+  if (!win || win.isDestroyed() || !mainWindow || mainWindow.isDestroyed() || !mainWindow.isFullScreen()) return;
+  if (process.platform === 'darwin') {
+    win.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true, skipTransformProcessType: true });
+    win.setAlwaysOnTop(true, 'floating');
+  }
+  win.once('closed', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
+  });
+}
+
 function parsePopupFeatures(features) {
   const size = { width: 520, height: 720 };
   if (!features || typeof features !== 'string') return size;
@@ -195,7 +318,7 @@ function buildPopupWindowOptions(partition, features) {
     height: Math.min(Math.max(size.height, 520), 1000),
     minWidth: 400,
     minHeight: 500,
-    parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+    ...authPopupParentOptions(),
     modal: false,
     autoHideMenuBar: true,
     title: 'Tim Workspaces',
@@ -242,6 +365,8 @@ function setupMicrosoftWebAuthnBypass(webContents) {
 
 function setupAuthPopupWindow(childWindow) {
   if (!childWindow || childWindow.isDestroyed?.()) return;
+  setupPopupOverFullscreen(childWindow);
+  attachContextMenu(childWindow.webContents);
   childWindow.setMenuBarVisibility(false);
   childWindow.webContents.setUserAgent(CHROME_USER_AGENT);
   ensureWebviewSessionHandlers(childWindow.webContents.session);
@@ -852,7 +977,7 @@ function openEmbeddedAuthWindow(url, partition) {
       width: 520,
       height: 820,
       title: embeddedAuthWindowTitle(url),
-      parent: mainWindow && !mainWindow.isDestroyed() ? mainWindow : undefined,
+      ...authPopupParentOptions(),
       autoHideMenuBar: true,
       webPreferences: {
         partition: authPartition,
@@ -863,6 +988,8 @@ function openEmbeddedAuthWindow(url, partition) {
         disableBlinkFeatures: 'AutomationControlled'
       }
     });
+    setupPopupOverFullscreen(authWin);
+    attachContextMenu(authWin.webContents);
     authWin.webContents.setUserAgent(CHROME_USER_AGENT);
     ensureWebviewSessionHandlers(authWin.webContents.session);
     setupWebviewWindowOpenHandler(authWin.webContents);
@@ -991,6 +1118,7 @@ app.on('web-contents-created', (_, webContents) => {
     setupWebviewWindowOpenHandler(webContents);
     setupMicrosoftWebAuthnBypass(webContents);
     attachBluetoothSelector(webContents);
+    attachContextMenu(webContents);
   }
 });
 

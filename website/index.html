@@ -34,7 +34,7 @@
   <link rel="icon" type="image/png" sizes="192x192" href="assets/icone-fundo-escuro.png">
   <link rel="apple-touch-icon" sizes="180x180" href="assets/icone-fundo-escuro.png">
 
-  <meta name="theme-color" content="#212124">
+  <meta name="theme-color" content="#111113">
 
   <!-- JSON-LD -->
   <script type="application/ld+json">
@@ -43,154 +43,326 @@
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    body { font-family: 'Figtree', system-ui, sans-serif; }
+    :root { --bg: #111113; --card: rgba(255,255,255,0.03); --line: rgba(255,255,255,0.08); }
+    html { scroll-behavior: smooth; }
+    body { font-family: 'Figtree', system-ui, sans-serif; background-color: var(--bg); }
+    .bg-glow {
+      background:
+        radial-gradient(60rem 30rem at 50% -10%, rgba(14,165,233,0.18), transparent 70%),
+        radial-gradient(40rem 24rem at 90% 20%, rgba(99,102,241,0.10), transparent 70%);
+    }
+    .bg-grid {
+      background-image: linear-gradient(var(--line) 1px, transparent 1px), linear-gradient(90deg, var(--line) 1px, transparent 1px);
+      background-size: 56px 56px;
+      mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 70%);
+      -webkit-mask-image: radial-gradient(ellipse at 50% 0%, #000 20%, transparent 70%);
+    }
+    .card { background: var(--card); border: 1px solid var(--line); transition: border-color .2s, background-color .2s, transform .2s; }
+    .card:hover { border-color: rgba(56,189,248,0.35); background: rgba(255,255,255,0.05); transform: translateY(-2px); }
+    .text-gradient { background: linear-gradient(135deg, #f4f4f5 30%, #7dd3fc 100%); -webkit-background-clip: text; background-clip: text; color: transparent; }
+    .reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+    .reveal.is-visible { opacity: 1; transform: none; }
+    .dl-card.is-recommended { border-color: rgba(56,189,248,0.6); background: rgba(14,165,233,0.08); }
+    .dl-card .dl-badge { display: none; }
+    .dl-card.is-recommended .dl-badge { display: inline-flex; }
+    #modal-coffee .modal-panel { transition: opacity .2s ease, transform .2s ease; opacity: 0; transform: scale(.96) translateY(8px); }
+    #modal-coffee.is-open .modal-panel { opacity: 1; transform: none; }
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      .reveal, .card, #screenshot-track, #modal-coffee .modal-panel { transition: none !important; transform: none !important; opacity: 1 !important; }
+    }
   </style>
 </head>
-<body class="text-zinc-100 min-h-screen antialiased" style="background-color:#212124">
-  <div class="max-w-4xl mx-auto px-6 py-16">
-    <header class="text-center mb-16">
-      <div class="flex justify-center mb-6">
-        <img
-          src="assets/logo-fundo-escuro.png"
-          alt="Tim Workspaces"
-          class="h-24 w-auto object-contain"
-          onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-        >
-        <div class="h-16 w-16 hidden items-center justify-center rounded-xl border border-zinc-700/50 text-zinc-500 text-xs" style="display:none;background-color:rgba(33,33,36,0.8);">
-          Logo
-        </div>
+<body class="text-zinc-100 min-h-screen antialiased overflow-x-hidden">
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-[44rem] bg-glow" aria-hidden="true"></div>
+  <div class="pointer-events-none absolute inset-x-0 top-0 h-[36rem] bg-grid opacity-40" aria-hidden="true"></div>
+
+  <nav class="sticky top-0 z-40 border-b border-white/5 backdrop-blur-xl" style="background-color:rgba(17,17,19,0.7)">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="#top" class="flex items-center gap-2.5 font-semibold text-zinc-100">
+        <img src="assets/icone-fundo-escuro.png" alt="" class="w-7 h-7 rounded-lg" width="28" height="28">
+        Tim Workspaces
+      </a>
+      <div class="flex items-center gap-1 text-sm">
+        <a href="#recursos" class="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-colors">Recursos</a>
+        <a href="#baixar" class="hidden sm:inline-flex px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-colors">Baixar</a>
+        <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-zinc-400 hover:text-zinc-100 hover:bg-white/5 transition-colors" title="Código no GitHub">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/></svg>
+          <span class="hidden sm:inline">GitHub</span>
+        </a>
       </div>
-      <p class="text-zinc-400 text-lg max-w-md mx-auto">
+    </div>
+  </nav>
+
+  <main id="top" class="relative">
+    <header class="max-w-4xl mx-auto px-6 pt-24 pb-14 text-center">
+      <a href="https://github.com/renatoruis/timworkspaces/releases/latest" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 mb-6 px-3 py-1 rounded-full border border-sky-400/20 bg-sky-400/5 text-sky-300 text-xs font-medium hover:border-sky-400/40 transition-colors">
+        <span class="relative flex h-2 w-2"><span class="absolute inline-flex h-full w-full rounded-full bg-sky-400 opacity-60 animate-ping"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-sky-400"></span></span>
+        <span id="dl-version">Última versão</span>
+      </a>
+      <h1 class="text-4xl sm:text-6xl font-extrabold tracking-tight leading-[1.05] text-gradient">
+        Todas as suas ferramentas.<br class="hidden sm:block"> Numa janela só.
+      </h1>
+      <p class="mt-6 text-zinc-400 text-lg max-w-xl mx-auto">
         Gmail, WhatsApp, Teams, Slack e outros, tudo numa janela só, sem abrir 47 abas.
       </p>
+      <div class="mt-9 flex flex-col sm:flex-row items-center justify-center gap-3">
+        <a href="#baixar" id="dl-primary" class="inline-flex items-center gap-2.5 px-6 py-3.5 rounded-xl bg-sky-500 hover:bg-sky-400 text-zinc-950 font-semibold shadow-lg shadow-sky-500/20 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-300 focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v12m0 0l-4-4m4 4l4-4M4 20h16"/></svg>
+          <span id="dl-primary-label">Baixar grátis</span>
+        </a>
+        <a href="#recursos" class="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl border border-white/10 hover:border-white/20 hover:bg-white/5 text-zinc-200 font-medium transition-colors">
+          Ver recursos
+        </a>
+      </div>
+      <p class="mt-4 text-zinc-500 text-xs">macOS · Windows · Linux — grátis e open source</p>
     </header>
 
-    <section class="mb-20">
-      <div class="rounded-xl overflow-hidden flex items-center justify-center" id="screenshot-carousel-wrap">
-        <div class="relative w-full max-w-4xl">
-          <div class="overflow-hidden" style="aspect-ratio: 4/3;">
-            <div id="screenshot-track" class="flex transition-transform duration-500 ease-out" style="width: 300%;">
-              <img src="screenshot-1.png" alt="Tim Workspaces — interface principal" class="w-1/3 flex-shrink-0 object-contain object-center max-w-full" loading="eager">
-              <img src="screenshot-2.png" alt="Tim Workspaces — lista de serviços" class="w-1/3 flex-shrink-0 object-contain object-center max-w-full" loading="eager">
-              <img src="screenshot-3.png" alt="Tim Workspaces — workspaces" class="w-1/3 flex-shrink-0 object-contain object-center max-w-full" loading="eager">
-            </div>
+    <section class="max-w-5xl mx-auto px-6 pb-24 reveal" aria-label="Capturas de tela">
+      <div id="screenshot-carousel-wrap" class="relative rounded-2xl border border-white/10 bg-zinc-900/60 shadow-2xl shadow-black/60 overflow-hidden">
+        <div class="flex items-center gap-2 px-4 h-10 border-b border-white/5 bg-white/[0.02]">
+          <span class="w-3 h-3 rounded-full bg-[#ff5f57]"></span>
+          <span class="w-3 h-3 rounded-full bg-[#febc2e]"></span>
+          <span class="w-3 h-3 rounded-full bg-[#28c840]"></span>
+          <span id="screenshot-caption" class="flex-1 text-center text-xs text-zinc-500 pr-12">Interface principal</span>
+        </div>
+        <div class="relative overflow-hidden group" style="aspect-ratio: 4/3;">
+          <div id="screenshot-track" class="flex h-full transition-transform duration-700 ease-[cubic-bezier(.22,1,.36,1)]" style="width: 300%;">
+            <img src="screenshot-1.png" alt="Tim Workspaces — interface principal" data-caption="Interface principal" class="w-1/3 h-full flex-shrink-0 object-contain object-center" loading="eager">
+            <img src="screenshot-2.png" alt="Tim Workspaces — lista de serviços" data-caption="Lista de serviços" class="w-1/3 h-full flex-shrink-0 object-contain object-center" loading="lazy">
+            <img src="screenshot-3.png" alt="Tim Workspaces — workspaces" data-caption="Workspaces" class="w-1/3 h-full flex-shrink-0 object-contain object-center" loading="lazy">
           </div>
-          <div id="screenshot-dots" class="flex justify-center gap-2 mt-4">
-            <button type="button" class="carousel-dot w-2.5 h-2.5 rounded-full transition-colors bg-sky-500" data-idx="0" aria-label="Imagem 1"></button>
-            <button type="button" class="carousel-dot w-2.5 h-2.5 rounded-full transition-colors bg-zinc-600 hover:bg-zinc-500" data-idx="1" aria-label="Imagem 2"></button>
-            <button type="button" class="carousel-dot w-2.5 h-2.5 rounded-full transition-colors bg-zinc-600 hover:bg-zinc-500" data-idx="2" aria-label="Imagem 3"></button>
+          <button type="button" id="carousel-prev" class="absolute left-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur border border-white/10 text-zinc-200 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-black/70 transition" aria-label="Imagem anterior" title="Anterior">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <button type="button" id="carousel-next" class="absolute right-3 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-black/50 backdrop-blur border border-white/10 text-zinc-200 flex items-center justify-center opacity-0 group-hover:opacity-100 focus:opacity-100 hover:bg-black/70 transition" aria-label="Próxima imagem" title="Próxima">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+      </div>
+      <div id="screenshot-dots" class="flex justify-center gap-2 mt-5">
+        <button type="button" class="carousel-dot h-2 rounded-full transition-all" data-idx="0" aria-label="Imagem 1"></button>
+        <button type="button" class="carousel-dot h-2 rounded-full transition-all" data-idx="1" aria-label="Imagem 2"></button>
+        <button type="button" class="carousel-dot h-2 rounded-full transition-all" data-idx="2" aria-label="Imagem 3"></button>
+      </div>
+    </section>
+
+    <section id="recursos" class="max-w-6xl mx-auto px-6 pb-24 scroll-mt-20">
+      <div class="text-center mb-12 reveal">
+        <p class="text-sky-400 text-sm font-semibold tracking-wide uppercase mb-3">Recursos</p>
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Feito pra quem vive em 10 apps ao mesmo tempo</h2>
+      </div>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-sky-500/10 text-sky-400 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
           </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Tudo num lugar</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Gmail, WhatsApp, Teams, Slack ou qualquer site. Cada um com sessão própria, sem misturar contas.</p>
+        </div>
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-indigo-500/10 text-indigo-400 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 5a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1V5zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1V5zM4 15a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1H5a1 1 0 01-1-1v-4zm10 0a1 1 0 011-1h4a1 1 0 011 1v4a1 1 0 01-1 1h-4a1 1 0 01-1-1v-4z"/></svg>
+          </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Workspaces</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Separa trabalho, freela e pessoal. Troca de contexto num clique.</p>
+        </div>
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+          </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Leve de verdade</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Serviços parados hibernam sozinhos e o cache se limpa. Memória e disco sob controle.</p>
+        </div>
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 11-6 0"/></svg>
+          </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Notificações no seu ritmo</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Silencia um serviço ou todos de uma vez. Foco quando precisa.</p>
+        </div>
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Chamadas e tela</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Compartilha tela, câmera, microfone e devices nas reuniões, sem gambiarra.</p>
+        </div>
+        <div class="card rounded-2xl p-6 reveal">
+          <div class="w-10 h-10 rounded-xl bg-zinc-500/10 text-zinc-300 flex items-center justify-center mb-4">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          </div>
+          <h3 class="font-semibold text-zinc-100 mb-1.5">Privado</h3>
+          <p class="text-zinc-400 text-sm leading-relaxed">Tudo fica no seu computador. Sem conta, sem servidor, sem telemetria.</p>
         </div>
       </div>
     </section>
 
-    <section class="mb-20">
-      <h2 class="text-xl font-medium text-zinc-300 mb-6 text-center">Baixar</h2>
-      <p id="dl-version" class="text-center text-zinc-500 text-sm mb-6">—</p>
-      <div class="flex flex-col items-center gap-4 mb-8">
-        <div class="flex flex-wrap justify-center gap-4">
-          <a href="#" id="dl-macos-arm" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
-            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
-            <span>Mac de boy (arm)</span>
-          </a>
-          <a href="#" id="dl-macos-intel" class="inline-flex items-center gap-3 px-6 py-4 rounded-xl hover:opacity-90 border-2 border-sky-500/50 hover:border-sky-500 transition-colors text-zinc-100 text-lg font-medium shadow-lg" style="background-color:rgba(33,33,36,0.9)">
-            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8 flex-shrink-0" width="32" height="32">
-            <span>Mac Raiz (intel)</span>
-          </a>
-        </div>
-        <div class="flex flex-wrap justify-center gap-3">
-          <a href="#" id="dl-linux" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg hover:opacity-90 border border-sky-500/40 hover:border-sky-500/70 transition-colors text-zinc-300 text-sm font-medium" style="background-color:rgba(33,33,36,0.9)">
-            <img src="https://cdn.simpleicons.org/linux/ffffff" alt="" class="w-5 h-5 flex-shrink-0" width="20" height="20">
-            <span>Linux Topzera!</span>
-          </a>
-          <a href="#" id="dl-windows" class="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg hover:opacity-90 border border-sky-500/40 hover:border-sky-500/70 transition-colors text-zinc-300 text-sm font-medium" style="background-color:rgba(33,33,36,0.9)">
-            <svg class="w-5 h-5 flex-shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
-            <span>Windão</span>
-          </a>
-        </div>
+    <section id="baixar" class="max-w-5xl mx-auto px-6 pb-24 scroll-mt-20">
+      <div class="text-center mb-10 reveal">
+        <p class="text-sky-400 text-sm font-semibold tracking-wide uppercase mb-3">Baixar</p>
+        <h2 class="text-3xl sm:text-4xl font-bold tracking-tight">Escolha seu sistema</h2>
       </div>
-      <p class="text-center">
-        <a href="https://github.com/renatoruis/timworkspaces/releases" id="dl-all" target="_blank" rel="noopener noreferrer" class="text-zinc-500 hover:text-zinc-300 text-sm transition-colors">Ver todas as versões no GitHub →</a>
-      </p>
-      <p class="text-center mt-2">
-        <a href="instalacao.html" class="text-zinc-500 hover:text-zinc-300 text-xs transition-colors">Problemas no Windows ou Linux? Tem o guia aqui →</a>
-      </p>
+      <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4 reveal">
+        <a href="#" id="dl-macos-arm" data-os="mac-arm" class="dl-card card rounded-2xl p-5 flex flex-col gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+          <div class="flex items-center justify-between">
+            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8" width="32" height="32">
+            <span class="dl-badge items-center px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[11px] font-semibold">Recomendado</span>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-100">Mac de boy (arm)</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Apple Silicon · M1 ou superior · .dmg</p>
+          </div>
+        </a>
+        <a href="#" id="dl-macos-intel" data-os="mac-intel" class="dl-card card rounded-2xl p-5 flex flex-col gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+          <div class="flex items-center justify-between">
+            <img src="https://cdn.simpleicons.org/apple/ffffff" alt="" class="w-8 h-8" width="32" height="32">
+            <span class="dl-badge items-center px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[11px] font-semibold">Recomendado</span>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-100">Mac Raiz (intel)</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Processador Intel · .dmg</p>
+          </div>
+        </a>
+        <a href="#" id="dl-windows" data-os="windows" class="dl-card card rounded-2xl p-5 flex flex-col gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+          <div class="flex items-center justify-between">
+            <svg class="w-8 h-8 text-zinc-100" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M0 3.449L9.75 2.1v9.451H0m10.949-9.602L24 0v11.4H10.949M0 12.6h9.75v9.451L0 20.699M10.949 12.6H24V24l-12.9-1.801"/></svg>
+            <span class="dl-badge items-center px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[11px] font-semibold">Recomendado</span>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-100">Windão</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Windows 10 e 11 · instalador .exe</p>
+          </div>
+        </a>
+        <a href="#" id="dl-linux" data-os="linux" class="dl-card card rounded-2xl p-5 flex flex-col gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-sky-400">
+          <div class="flex items-center justify-between">
+            <img src="https://cdn.simpleicons.org/linux/ffffff" alt="" class="w-8 h-8" width="32" height="32">
+            <span class="dl-badge items-center px-2 py-0.5 rounded-full bg-sky-500/15 text-sky-300 text-[11px] font-semibold">Recomendado</span>
+          </div>
+          <div>
+            <p class="font-semibold text-zinc-100">Linux Topzera!</p>
+            <p class="text-zinc-500 text-xs mt-0.5">Debian, Ubuntu e derivados · .deb</p>
+          </div>
+        </a>
+      </div>
+      <div class="mt-6 flex flex-col sm:flex-row items-center justify-center gap-x-6 gap-y-2 text-sm">
+        <a href="https://github.com/renatoruis/timworkspaces/releases" id="dl-all" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-zinc-100 transition-colors">Ver todas as versões no GitHub →</a>
+        <a href="instalacao.html" class="text-zinc-500 hover:text-zinc-300 transition-colors">Problemas no Windows ou Linux? Tem o guia aqui →</a>
+      </div>
     </section>
 
-    <section class="mb-20">
-      <div class="grid gap-6 sm:grid-cols-3 text-center">
-        <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">Na Faixa!</h3>
-          <p class="text-zinc-500 text-sm">De graça mesmo!</p>
-          <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Só não vender né!</a>
+    <section class="max-w-5xl mx-auto px-6 pb-24">
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="card rounded-2xl p-6 text-center reveal">
+          <h3 class="text-zinc-100 font-semibold mb-1.5">Na Faixa!</h3>
+          <p class="text-zinc-400 text-sm">De graça mesmo!</p>
+          <a href="https://creativecommons.org/licenses/by-nc/4.0/" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-3 inline-block transition-colors">Só não vender né!</a>
         </div>
-        <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">Sem rastreio</h3>
-          <p class="text-zinc-500 text-sm">Não preciso do seus dados não.</p>
+        <div class="card rounded-2xl p-6 text-center reveal">
+          <h3 class="text-zinc-100 font-semibold mb-1.5">Sem rastreio</h3>
+          <p class="text-zinc-400 text-sm">Não preciso do seus dados não.</p>
         </div>
-        <div class="rounded-xl p-5 border border-zinc-700/50" style="background-color:rgba(33,33,36,0.6)">
-          <h3 class="text-zinc-200 font-medium mb-2">Open Source</h3>
-          <p class="text-zinc-500 text-sm">Ajuda melhorar essa bagaça e abre um PR lá no GitHub.</p>
-          <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-2 inline-block transition-colors">Aqui</a>
+        <div class="card rounded-2xl p-6 text-center reveal">
+          <h3 class="text-zinc-100 font-semibold mb-1.5">Open Source</h3>
+          <p class="text-zinc-400 text-sm">Ajuda melhorar essa bagaça e abre um PR lá no GitHub.</p>
+          <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="text-sky-400 hover:text-sky-300 text-sm mt-3 inline-block transition-colors">Aqui</a>
         </div>
       </div>
 
-      <button type="button" id="btn-coffee" class="mt-10 w-full rounded-xl p-8 border-2 border-sky-500/50 hover:border-sky-500 transition-colors flex items-center justify-center gap-4 text-zinc-100 hover:opacity-90" style="background-color:rgba(33,33,36,0.9)">
-        <svg class="w-10 h-10 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 14v3m4-3v3m4-3v3M3 21h18M3 10h18M3 7l3-3h12l3 3M4 10h16v11H4V10z"/></svg>
-        <div class="text-left">
+      <button type="button" id="btn-coffee" class="reveal group mt-6 w-full rounded-2xl p-8 border border-sky-500/30 hover:border-sky-400/60 transition-colors flex flex-col sm:flex-row items-center justify-center gap-5 text-zinc-100 relative overflow-hidden" style="background:linear-gradient(135deg,rgba(14,165,233,0.12),rgba(99,102,241,0.08))">
+        <span class="w-14 h-14 rounded-2xl bg-sky-500/15 text-sky-300 flex items-center justify-center group-hover:scale-105 transition-transform">
+          <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 8h1a4 4 0 010 8h-1M3 8h14v9a4 4 0 01-4 4H7a4 4 0 01-4-4V8zm3-6v2m4-2v2m4-2v2"/></svg>
+        </span>
+        <span class="text-center sm:text-left">
           <span class="block text-xl font-semibold">Paga um café pow!</span>
-          <span class="block text-zinc-500 text-sm">Faz o PIX e ajude a manter minha motivação hahaha!</span>
-        </div>
+          <span class="block text-zinc-400 text-sm mt-0.5">Faz o PIX e ajude a manter minha motivação hahaha!</span>
+        </span>
       </button>
 
-      <div class="mb-12 mt-10 rounded-xl border-2 border-sky-500/40 p-4" style="background-color:rgba(14,165,233,0.08)">
-        <p class="text-sky-200/90 text-sm leading-relaxed">
-          <strong>Observação:</strong> Esse app é um hobbie por enquanto. Pode ter bugs (muitos as vezes) se descobrir algum, abre issue pra nóix lá no GitHub.
+      <div class="mt-6 rounded-2xl border border-amber-400/20 bg-amber-400/5 p-4 flex gap-3 reveal">
+        <svg class="w-5 h-5 text-amber-300 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+        <p class="text-amber-100/80 text-sm leading-relaxed">
+          <strong class="text-amber-100">Observação:</strong> Esse app é um hobbie por enquanto. Pode ter bugs (muitos as vezes) se descobrir algum, <a href="https://github.com/renatoruis/timworkspaces/issues" target="_blank" rel="noopener noreferrer" class="underline decoration-amber-300/40 hover:decoration-amber-300">abre issue pra nóix lá no GitHub</a>.
         </p>
       </div>
     </section>
+  </main>
 
-    <footer class="text-center text-zinc-500 text-sm flex flex-col items-center gap-4">
-      <div class="flex items-center gap-6">
-        <a href="https://github.com/renatoruis/timworkspaces" class="hover:text-zinc-300 transition-colors inline-flex items-center gap-1.5" target="_blank" rel="noopener noreferrer">
-          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"/>
-          </svg>
-          GitHub
-        </a>
+  <footer class="border-t border-white/5">
+    <div class="max-w-6xl mx-auto px-6 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-zinc-500 text-sm">
+      <div class="flex items-center gap-2.5">
+        <img src="assets/icone-fundo-escuro.png" alt="" class="w-6 h-6 rounded-md" width="24" height="24">
+        <span>Tim Workspaces · feito por <a href="https://github.com/renatoruis" target="_blank" rel="noopener noreferrer" class="text-zinc-400 hover:text-zinc-200 transition-colors">Renato Ruis</a></span>
       </div>
-    </footer>
-  </div>
-
-
-
-  <div id="modal-coffee" class="fixed inset-0 z-50 hidden items-center justify-center p-4" style="display:none;background-color:rgba(0,0,0,0.5)">
-    <div class="absolute inset-0" id="modal-coffee-overlay"></div>
-    <div class="relative border border-zinc-600/50 rounded-2xl p-6 min-w-[300px] max-w-sm shadow-2xl" style="background-color:#212124">
-      <h3 class="text-lg font-semibold text-zinc-100 mb-2">Apoiar o Tim</h3>
-      <p class="text-sm text-zinc-400 mb-4">PIX ou email abaixo.</p>
-      <div class="flex justify-center mb-4">
-        <img src="assets/qr-code-pix.png" alt="QR Code PIX" class="w-40 h-40 object-contain rounded-lg border border-zinc-600/50">
+      <div class="flex items-center gap-5">
+        <a href="instalacao.html" class="hover:text-zinc-300 transition-colors">Instalação</a>
+        <a href="https://github.com/renatoruis/timworkspaces/releases" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-300 transition-colors">Versões</a>
+        <a href="https://github.com/renatoruis/timworkspaces" target="_blank" rel="noopener noreferrer" class="hover:text-zinc-300 transition-colors">GitHub</a>
       </div>
-      <p class="text-xs font-medium text-zinc-500 mb-2">Chave PIX</p>
-      <p id="coffee-pix-key" class="text-sm font-mono text-zinc-300 bg-zinc-700/50 rounded-lg px-3 py-2 mb-3 break-all">a7f1a823-d3b5-4ab3-b63f-03ffed9459f7</p>
-      <button type="button" id="coffee-copy-pix" class="w-full px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors mb-4">Copiar chave</button>
-      <p class="text-xs font-medium text-zinc-500 mb-2">Contato</p>
-      <p id="coffee-email" class="text-sm font-mono text-zinc-300 bg-zinc-700/50 rounded-lg px-3 py-2 mb-3 break-all">renatoruis@linux.com</p>
-      <button type="button" id="coffee-copy-email" class="w-full px-4 py-2 bg-zinc-700/50 hover:bg-zinc-600/50 text-zinc-200 rounded-lg text-sm font-medium transition-colors">Copiar email</button>
-      <button type="button" id="modal-coffee-close" class="absolute top-4 right-4 p-2 rounded-xl text-zinc-500 hover:text-zinc-200 hover:bg-zinc-700/50 transition-colors" aria-label="Fechar">
+    </div>
+  </footer>
+
+  <div id="modal-coffee" class="fixed inset-0 z-50 items-center justify-center p-4" style="display:none" role="dialog" aria-modal="true" aria-labelledby="modal-coffee-title">
+    <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" id="modal-coffee-overlay"></div>
+    <div class="modal-panel relative border border-white/10 rounded-2xl p-6 w-full max-w-sm shadow-2xl" style="background-color:#18181b">
+      <h3 id="modal-coffee-title" class="text-lg font-semibold text-zinc-100 mb-1">Apoiar o Tim</h3>
+      <p class="text-sm text-zinc-400 mb-5">PIX ou email abaixo.</p>
+      <div class="flex justify-center mb-5">
+        <div class="p-2 rounded-xl bg-white">
+          <img src="assets/qr-code-pix.png" alt="QR Code PIX" class="w-40 h-40 object-contain">
+        </div>
+      </div>
+      <p class="text-xs font-medium text-zinc-500 mb-1.5">Chave PIX</p>
+      <div class="flex items-center gap-2 mb-4">
+        <p id="coffee-pix-key" class="flex-1 min-w-0 text-xs font-mono text-zinc-300 bg-white/5 border border-white/5 rounded-lg px-3 py-2 break-all">a7f1a823-d3b5-4ab3-b63f-03ffed9459f7</p>
+        <button type="button" id="coffee-copy-pix" class="px-3 py-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-zinc-950 text-xs font-semibold transition-colors flex-shrink-0">Copiar chave</button>
+      </div>
+      <p class="text-xs font-medium text-zinc-500 mb-1.5">Contato</p>
+      <div class="flex items-center gap-2">
+        <p id="coffee-email" class="flex-1 min-w-0 text-xs font-mono text-zinc-300 bg-white/5 border border-white/5 rounded-lg px-3 py-2 break-all">renatoruis@linux.com</p>
+        <button type="button" id="coffee-copy-email" class="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/15 text-zinc-200 text-xs font-semibold transition-colors flex-shrink-0">Copiar email</button>
+      </div>
+      <button type="button" id="modal-coffee-close" class="absolute top-4 right-4 p-1.5 rounded-lg text-zinc-500 hover:text-zinc-200 hover:bg-white/10 transition-colors" aria-label="Fechar" title="Fechar">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
-    </div> 
+    </div>
   </div>
 
   <script>
     (function() {
       var repo = 'renatoruis/timworkspaces';
       var releasesUrl = 'https://api.github.com/repos/' + repo + '/releases/latest';
+      var fallbackUrl = 'https://github.com/' + repo + '/releases/latest';
+      var OS_LABELS = { 'mac-arm': 'Baixar para Mac (Apple Silicon)', 'mac-intel': 'Baixar para Mac (Intel)', 'windows': 'Baixar para Windows', 'linux': 'Baixar para Linux' };
+
+      function detectOs() {
+        var ua = navigator.userAgent || '';
+        var platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+        if (/Win/i.test(platform) || /Windows/i.test(ua)) return 'windows';
+        if (/Android|iPhone|iPad/i.test(ua)) return null;
+        if (/Linux/i.test(platform) || /Linux/i.test(ua)) return 'linux';
+        if (/Mac/i.test(platform) || /Mac OS X/i.test(ua)) {
+          try {
+            var gl = document.createElement('canvas').getContext('webgl');
+            var dbg = gl && gl.getExtension('WEBGL_debug_renderer_info');
+            var renderer = dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '';
+            if (/Intel/i.test(renderer)) return 'mac-intel';
+          } catch (e) {}
+          return 'mac-arm';
+        }
+        return null;
+      }
+
+      var detected = detectOs();
+      var primary = document.getElementById('dl-primary');
+      if (detected) {
+        document.getElementById('dl-primary-label').textContent = OS_LABELS[detected];
+        var card = document.querySelector('.dl-card[data-os="' + detected + '"]');
+        if (card) card.classList.add('is-recommended');
+      }
 
       function byExt(name) {
         var n = name.toLowerCase();
@@ -200,89 +372,115 @@
         return null;
       }
 
-      fetch(releasesUrl).then(function(r) { return r.json(); }).then(function(data) {
-        var ver = document.getElementById('dl-version');
+      function setLinks(urls) {
+        var map = { 'mac-arm': 'dl-macos-arm', 'mac-intel': 'dl-macos-intel', 'linux': 'dl-linux', 'windows': 'dl-windows' };
+        Object.keys(map).forEach(function(os) {
+          document.getElementById(map[os]).href = urls[os] || fallbackUrl;
+        });
+        if (detected) primary.href = urls[detected] || fallbackUrl;
+      }
+
+      fetch(releasesUrl).then(function(r) {
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        return r.json();
+      }).then(function(data) {
         var assets = data.assets || [];
-        var macArm = null, macIntel = null, linuxDeb = null, winSetup = null;
+        var urls = {};
         for (var i = 0; i < assets.length; i++) {
           var a = assets[i], t = byExt(a.name);
           if (t === 'macos') {
-            if (a.name.toLowerCase().includes('arm64')) macArm = a.browser_download_url;
-            else macIntel = a.browser_download_url;
-          } else if (t === 'linux-deb') linuxDeb = a.browser_download_url;
-          else if (t === 'win-setup') winSetup = a.browser_download_url;
+            if (a.name.toLowerCase().includes('arm64')) urls['mac-arm'] = a.browser_download_url;
+            else urls['mac-intel'] = a.browser_download_url;
+          } else if (t === 'linux-deb') urls['linux'] = a.browser_download_url;
+          else if (t === 'win-setup') urls['windows'] = a.browser_download_url;
         }
-        ver.textContent = 'Versão ' + (data.tag_name || '');
-        document.getElementById('dl-macos-arm').href = macArm || 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-macos-intel').href = macIntel || macArm || 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-linux').href = linuxDeb || 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-windows').href = winSetup || 'https://github.com/' + repo + '/releases/latest';
+        urls['mac-intel'] = urls['mac-intel'] || urls['mac-arm'];
+        if (data.tag_name) document.getElementById('dl-version').textContent = 'Versão ' + data.tag_name + ' disponível';
+        setLinks(urls);
       }).catch(function() {
-        document.getElementById('dl-version').textContent = '';
-        document.getElementById('dl-macos-arm').href = 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-macos-intel').href = 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-linux').href = 'https://github.com/' + repo + '/releases/latest';
-        document.getElementById('dl-windows').href = 'https://github.com/' + repo + '/releases/latest';
+        setLinks({});
       });
 
       var pixKey = 'a7f1a823-d3b5-4ab3-b63f-03ffed9459f7';
-      var modalCoffee = document.getElementById('modal-coffee');
-      document.getElementById('btn-coffee').addEventListener('click', function() {
-        modalCoffee.style.display = 'flex';
-        modalCoffee.classList.add('flex');
-      });
-      document.getElementById('modal-coffee-overlay').addEventListener('click', function() {
-        modalCoffee.style.display = 'none';
-        modalCoffee.classList.remove('flex');
-      });
-      document.getElementById('modal-coffee-close').addEventListener('click', function() {
-        modalCoffee.style.display = 'none';
-        modalCoffee.classList.remove('flex');
-      });
       var email = 'renatoruis@linux.com';
-      document.getElementById('coffee-copy-pix').addEventListener('click', function() {
-        navigator.clipboard.writeText(pixKey).then(function() {
-          var btn = this;
+      var modalCoffee = document.getElementById('modal-coffee');
+      var lastFocus = null;
+
+      function openModal() {
+        lastFocus = document.activeElement;
+        modalCoffee.style.display = 'flex';
+        requestAnimationFrame(function() { modalCoffee.classList.add('is-open'); });
+        document.getElementById('modal-coffee-close').focus();
+      }
+      function closeModal() {
+        modalCoffee.classList.remove('is-open');
+        setTimeout(function() { modalCoffee.style.display = 'none'; }, 180);
+        if (lastFocus) lastFocus.focus();
+      }
+      function copyWithFeedback(btn, text, label) {
+        navigator.clipboard.writeText(text).then(function() {
           btn.textContent = 'Copiado!';
-          setTimeout(function() { btn.textContent = 'Copiar chave'; }, 1500);
-        }.bind(this));
-      });
-      document.getElementById('coffee-copy-email').addEventListener('click', function() {
-        var btn = this;
-        navigator.clipboard.writeText(email).then(function() {
-          btn.textContent = 'Copiado!';
-          setTimeout(function() { btn.textContent = 'Copiar email'; }, 1500);
-        });
-      });
+          setTimeout(function() { btn.textContent = label; }, 1500);
+        }).catch(function() {});
+      }
+
+      document.getElementById('btn-coffee').addEventListener('click', openModal);
+      document.getElementById('modal-coffee-overlay').addEventListener('click', closeModal);
+      document.getElementById('modal-coffee-close').addEventListener('click', closeModal);
+      document.getElementById('coffee-copy-pix').addEventListener('click', function() { copyWithFeedback(this, pixKey, 'Copiar chave'); });
+      document.getElementById('coffee-copy-email').addEventListener('click', function() { copyWithFeedback(this, email, 'Copiar email'); });
       document.addEventListener('keydown', function(e) {
-        if (e.key === 'Escape' && modalCoffee.style.display === 'flex') {
-          modalCoffee.style.display = 'none';
-          modalCoffee.classList.remove('flex');
-        }
+        if (e.key === 'Escape' && modalCoffee.style.display === 'flex') closeModal();
       });
 
       (function carousel() {
         var track = document.getElementById('screenshot-track');
+        var wrap = document.getElementById('screenshot-carousel-wrap');
+        var caption = document.getElementById('screenshot-caption');
         var dots = document.querySelectorAll('.carousel-dot');
+        var imgs = track ? track.querySelectorAll('img') : [];
         if (!track || !dots.length) return;
-        var slides = 3;
+        var slides = imgs.length;
         var idx = 0;
+        var timer = null;
 
         function goTo(i) {
-          idx = i;
+          idx = (i + slides) % slides;
           track.style.transform = 'translateX(-' + (idx * (100 / slides)) + '%)';
+          caption.textContent = imgs[idx].getAttribute('data-caption') || '';
           dots.forEach(function(d, j) {
-            d.className = 'carousel-dot w-2.5 h-2.5 rounded-full transition-colors ' + (j === idx ? 'bg-sky-500' : 'bg-zinc-600 hover:bg-zinc-500');
+            d.className = 'carousel-dot h-2 rounded-full transition-all ' + (j === idx ? 'w-6 bg-sky-400' : 'w-2 bg-zinc-700 hover:bg-zinc-500');
+            if (j === idx) d.setAttribute('aria-current', 'true');
+            else d.removeAttribute('aria-current');
           });
         }
+        function start() { stop(); timer = setInterval(function() { goTo(idx + 1); }, 5000); }
+        function stop() { if (timer) clearInterval(timer); timer = null; }
 
-        dots.forEach(function(dot, i) {
-          dot.addEventListener('click', function() { goTo(i); });
-        });
+        dots.forEach(function(dot, i) { dot.addEventListener('click', function() { goTo(i); start(); }); });
+        document.getElementById('carousel-prev').addEventListener('click', function() { goTo(idx - 1); start(); });
+        document.getElementById('carousel-next').addEventListener('click', function() { goTo(idx + 1); start(); });
+        wrap.addEventListener('mouseenter', stop);
+        wrap.addEventListener('mouseleave', start);
+        goTo(0);
+        if (!window.matchMedia('(prefers-reduced-motion: reduce)').matches) start();
+      })();
 
-        setInterval(function() {
-          goTo((idx + 1) % slides);
-        }, 4000);
+      (function reveal() {
+        var els = document.querySelectorAll('.reveal');
+        if (!('IntersectionObserver' in window)) {
+          els.forEach(function(el) { el.classList.add('is-visible'); });
+          return;
+        }
+        var io = new IntersectionObserver(function(entries) {
+          entries.forEach(function(entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add('is-visible');
+              io.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.12 });
+        els.forEach(function(el) { io.observe(el); });
       })();
     })();
   </script>

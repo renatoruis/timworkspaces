@@ -99,6 +99,15 @@ Mensagem *A required agreement is missing or has expired* → entra em [develope
 
 ## Changelog recente
 
+### v1.6.1
+
+- **Fix notificações:** silenciar um serviço (ou todos) agora bloqueia de facto as notificações.
+- **Fix fullscreen (macOS):** popups de autenticação abrem por cima da app em ecrã inteiro, sem trocar de Space.
+- **Instância única:** abrir a app de novo foca a janela existente em vez de criar outra.
+- **Menu de contexto:** botão direito com sugestões de ortografia, copiar/colar, links e imagens.
+- **Recuperação automática:** aviso com "Recarregar" quando um serviço falha ou fica sem resposta, "Tentar de novo" quando não há ligação; serviços em segundo plano recarregam sozinhos.
+- **Site:** novo visual com recursos, download recomendado para o seu sistema e carrossel melhorado.
+
 ### v1.6.0
 
 - **Disco:** cache HTTP limitada a 150 MB por serviço, limpeza semanal automática de caches (sem perder logins/conversas), remoção de dados de serviços apagados e secção **Armazenamento** no menu (uso por serviço + limpar cache).
